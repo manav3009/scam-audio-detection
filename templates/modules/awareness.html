@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Safety Awareness{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="text-center">
+        <h1 class="text-3xl font-bold text-white mb-4">📚 Scam Awareness & Prevention</h1>
+        <p class="text-gray-300 max-w-2xl mx-auto">Stay informed and protected against the latest fraud techniques</p>
+    </div>
+    
+    <!-- Stats Counter -->
+    <div class="grid md:grid-cols-4 gap-4">
+        <div class="bg-red-600/20 rounded-lg p-4 text-center border border-red-500/30">
+            <div class="text-2xl font-bold text-red-400">$29.8B</div>
+            <div class="text-xs text-gray-400">Lost to scams (2023)</div>
+        </div>
+        <div class="bg-blue-600/20 rounded-lg p-4 text-center border border-blue-500/30">
+            <div class="text-2xl font-bold text-blue-400">1 in 4</div>
+            <div class="text-xs text-gray-400">People targeted annually</div>
+        </div>
+        <div class="bg-green-600/20 rounded-lg p-4 text-center border border-green-500/30">
+            <div class="text-2xl font-bold text-green-400">95%</div>
+            <div class="text-xs text-gray-400">Can be prevented with awareness</div>
+        </div>
+        <div class="bg-purple-600/20 rounded-lg p-4 text-center border border-purple-500/30">
+            <div class="text-2xl font-bold text-purple-400">+300%</div>
+            <div class="text-xs text-gray-400">Increase in AI voice scams</div>
+        </div>
+    </div>
+    
+    <!-- Common Scams Section -->
+    <div class="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-blue-500/30">
+        <h2 class="text-2xl font-bold text-white mb-6">
+            <i class="fas fa-exclamation-triangle text-yellow-500 mr-3"></i>Common Scam Types
+        </h2>
+        <div class="grid md:grid-cols-2 gap-6">
+            <div class="space-y-4">
+                <div class="bg-gray-900/50 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-red-400 mb-2">📞 Vishing (Voice Phishing)</h3>
+                    <p class="text-gray-300 text-sm">Scammers impersonate banks, government agencies, or tech support to steal personal information.</p>
+                    <div class="mt-2 text-xs text-gray-500">⚠️ Red flag: Urgent threats or demands for immediate payment</div>
+                </div>
+                <div class="bg-gray-900/50 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-red-400 mb-2">🤖 AI Voice Cloning</h3>
+                    <p class="text-gray-300 text-sm">Fraudsters use AI to mimic voices of family members in distress to request emergency funds.</p>
+                    <div class="mt-2 text-xs text-gray-500">⚠️ Red flag: Calls from "family" asking for secret money transfers</div>
+                </div>
+            </div>
+            <div class="space-y-4">
+                <div class="bg-gray-900/50 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-red-400 mb-2">💰 IRS/Tax Scams</h3>
+                    <p class="text-gray-300 text-sm">Threats of arrest or legal action for supposed tax debt, demanding immediate payment via gift cards.</p>
+                    <div class="mt-2 text-xs text-gray-500">⚠️ Red flag: IRS never calls, they send mail</div>
+                </div>
+                <div class="bg-gray-900/50 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-red-400 mb-2">💝 Romance Scams</h3>
+                    <p class="text-gray-300 text-sm">Fake online relationships leading to requests for money for emergencies or travel.</p>
+                    <div class="mt-2 text-xs text-gray-500">⚠️ Red flag: Never-met partner asking for money</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Protection Tips -->
+    <div class="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-green-500/30">
+        <h2 class="text-2xl font-bold text-white mb-6">
+            <i class="fas fa-shield-alt text-green-500 mr-3"></i>How to Protect Yourself
+        </h2>
+        <div class="grid md:grid-cols-3 gap-4">
+            <div class="text-center p-4">
+                <div class="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-phone-slash text-green-500"></i>
+                </div>
+                <h3 class="font-semibold text-white mb-2">Hang Up & Verify</h3>
+                <p class="text-gray-400 text-sm">Always call back using official numbers from statements or websites</p>
+            </div>
+            <div class="text-center p-4">
+                <div class="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-lock text-green-500"></i>
+                </div>
+                <h3 class="font-semibold text-white mb-2">Never Share Secrets</h3>
+                <p class="text-gray-400 text-sm">No legitimate caller asks for passwords, PINs, or 2FA codes</p>
+            </div>
+            <div class="text-center p-4">
+                <div class="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-flag-checkered text-green-500"></i>
+                </div>
+                <h3 class="font-semibold text-white mb-2">Report Scams</h3>
+                <p class="text-gray-400 text-sm">Report to FTC, local authorities, and your bank immediately</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Quiz -->
+    <div class="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-purple-500/30">
+        <h2 class="text-2xl font-bold text-white mb-4">🧠 Test Your Knowledge</h2>
+        <div id="quiz" class="space-y-4">
+            <div class="bg-gray-900/50 rounded-lg p-4">
+                <p class="text-white mb-3">What should you do if a caller claims to be from the IRS demanding immediate payment?</p>
+                <div class="space-y-2">
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="radio" name="q1" value="wrong1" class="form-radio text-blue-500">
+                        <span class="text-gray-300">Pay immediately to avoid arrest</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="radio" name="q1" value="correct" class="form-radio text-blue-500">
+                        <span class="text-gray-300">Hang up and call the IRS directly</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="radio" name="q1" value="wrong2" class="form-radio text-blue-500">
+                        <span class="text-gray-300">Give them your SSN to verify identity</span>
+                    </label>
+                </div>
+            </div>
+            <button id="checkQuiz" class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition">
+                Check Answer
+            </button>
+            <div id="quizResult" class="hidden text-green-400"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('checkQuiz').addEventListener('click', () => {
+        const selected = document.querySelector('input[name="q1"]:checked');
+        if (selected && selected.value === 'correct') {
+            document.getElementById('quizResult').innerHTML = '✅ Correct! Never trust unsolicited calls demanding payment. Always verify through official channels.';
+            document.getElementById('quizResult').classList.remove('hidden');
+        } else if (selected) {
+            document.getElementById('quizResult').innerHTML = '❌ That\'s incorrect. Always hang up and call the official number directly.';
+            document.getElementById('quizResult').classList.remove('hidden');
+        } else {
+            alert('Please select an answer first!');
+        }
+    });
+</script>
+{% endblock %}

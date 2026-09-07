@@ -1,0 +1,612 @@
+{% extends "base.html" %}
+
+{% block title %}Live Call Detection{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Navigation Buttons -->
+    <div class="flex items-center justify-between">
+        <div class="flex gap-3">
+            <a href="/dashboard" class="px-4 py-2 bg-gray-700/50 hover:bg-gray-700/70 text-gray-300 rounded-lg transition-all duration-300">
+                <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
+            </a>
+            <button onclick="window.history.back()" class="px-4 py-2 bg-gray-700/50 hover:bg-gray-700/70 text-gray-300 rounded-lg transition-all duration-300">
+                <i class="fas fa-arrow-left mr-2"></i>Previous Page
+            </button>
+        </div>
+        <div class="px-4 py-2 bg-green-500/20 rounded-lg text-green-400 text-sm">
+            <i class="fas fa-circle text-xs mr-2 animate-pulse"></i> Advanced AI Scam Detection Active
+        </div>
+    </div>
+    
+    <h1 class="text-3xl font-bold text-white">🎙️ Live Call Scam Detector</h1>
+    <p class="text-gray-400">Speak naturally - Advanced AI detects scam patterns in real-time</p>
+    
+    <!-- Test Phrases Section -->
+    <div class="bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-xl p-4 border border-purple-500/30">
+        <p class="text-sm text-gray-300 mb-2"><i class="fas fa-microphone-alt mr-2 text-purple-400"></i>Try these test phrases:</p>
+        <div class="flex flex-wrap gap-2">
+            <button onclick="testPhrase('Please share your bank account details')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">🏦 Bank Account</button>
+            <button onclick="testPhrase('We need your credit card number for verification')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">💳 Credit Card</button>
+            <button onclick="testPhrase('Your social security number has been compromised')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">🆔 SSN</button>
+            <button onclick="testPhrase('Send gift cards immediately')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">🎁 Gift Cards</button>
+            <button onclick="testPhrase('This is the IRS calling about unpaid taxes')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">💰 IRS Scam</button>
+            <button onclick="testPhrase('I am John from Bangkok. Your bank has blocked your account. Please kindly share OTP to unblock now.')" class="px-3 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-300 rounded-lg text-xs transition">🚨 Bank OTP Scam</button>
+        </div>
+    </div>
+    
+    <div class="grid lg:grid-cols-2 gap-6">
+        <!-- Left Panel - Voice Recording & Transcript -->
+        <div class="space-y-6">
+            <!-- Microphone Control Card -->
+            <div class="bg-gradient-to-br from-blue-900/30 to-purple-900/30 backdrop-blur-sm rounded-xl p-6 border border-blue-500/30">
+                <div class="text-center mb-4">
+                    <div id="micIcon" class="w-24 h-24 mx-auto bg-gray-800 rounded-full flex items-center justify-center mb-3 transition-all duration-300">
+                        <i class="fas fa-microphone text-5xl text-gray-400"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-white">Voice Recorder</h3>
+                    <p class="text-gray-400 text-sm mt-1">Click and start speaking</p>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button id="startRecordBtn" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105">
+                        <i class="fas fa-play mr-2"></i>Start Listening
+                    </button>
+                    <button id="stopRecordBtn" disabled class="flex-1 px-6 py-3 bg-red-600/50 text-red-400 rounded-lg font-semibold transition-all duration-300 cursor-not-allowed">
+                        <i class="fas fa-stop mr-2"></i>Stop
+                    </button>
+                </div>
+                
+                <div class="mt-3 text-center">
+                    <div id="recordingStatus" class="hidden text-red-400 text-sm">
+                        <i class="fas fa-circle animate-pulse mr-1"></i> Recording in progress...
+                    </div>
+                    <div id="silenceWarning" class="hidden text-yellow-400 text-sm mt-2">
+                        <i class="fas fa-clock mr-1"></i> 5 seconds silence will auto-stop
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Live Transcript Card -->
+            <div class="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-purple-500/30">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-xl font-semibold text-white">
+                        <i class="fas fa-comment-dots mr-2 text-purple-500"></i>Live Conversation
+                    </h2>
+                    <span id="wordCount" class="text-xs text-gray-500">0 words</span>
+                </div>
+                
+                <div id="transcriptArea" class="bg-gray-900/50 rounded-lg p-4 min-h-[300px] max-h-[300px] overflow-y-auto">
+                    <div class="text-gray-500 text-center py-8">
+                        <i class="fas fa-microphone-slash text-4xl mb-2 block"></i>
+                        Click "Start Listening" and speak naturally
+                    </div>
+                </div>
+                
+                <div class="mt-3 flex justify-between text-xs text-gray-500">
+                    <span><i class="fas fa-info-circle mr-1"></i> Real-time transcription</span>
+                    <span id="silenceTimer" class="hidden">Silence: 0s</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Panel - Analysis Results -->
+        <div class="space-y-6">
+            <!-- Risk Meter Card -->
+            <div class="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-red-500/30">
+                <h2 class="text-xl font-semibold text-white mb-4">
+                    <i class="fas fa-chart-line mr-2 text-red-500"></i>Risk Analysis
+                </h2>
+                
+                <!-- Risk Score Circle -->
+                <div class="relative mb-6">
+                    <div class="text-center">
+                        <div class="relative inline-block">
+                            <svg class="w-40 h-40 transform -rotate-90">
+                                <circle cx="80" cy="80" r="70" stroke="currentColor" stroke-width="12" fill="none" class="text-gray-700"/>
+                                <circle id="riskCircle" cx="80" cy="80" r="70" stroke="url(#gradient)" stroke-width="12" fill="none" stroke-dasharray="439.82" stroke-dashoffset="439.82" class="transition-all duration-500"/>
+                                <defs>
+                                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+                                        <stop offset="50%" style="stop-color:#f59e0b;stop-opacity:1" />
+                                        <stop offset="100%" style="stop-color:#ef4444;stop-opacity:1" />
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
+                                <div id="riskPercentage" class="text-3xl font-bold text-white">0%</div>
+                                <div class="text-xs text-gray-400">Risk Score</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Risk Level Badge -->
+                <div id="riskLevelCard" class="rounded-lg p-4 text-center mb-4 transition-all duration-300 bg-gray-900/50">
+                    <div id="riskLevelText" class="text-lg font-semibold text-gray-400">
+                        <i class="fas fa-shield-alt mr-2"></i>No analysis yet
+                    </div>
+                </div>
+                
+                <!-- Recommendation -->
+                <div id="recommendationCard" class="rounded-lg p-4 bg-gray-900/50">
+                    <div class="text-gray-400 text-sm mb-1">🛡️ Recommendation</div>
+                    <div id="recommendationText" class="text-gray-300 text-sm">Start speaking to analyze the call</div>
+                </div>
+            </div>
+            
+            <!-- Detected Keywords Card -->
+            <div class="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-yellow-500/30">
+                <h2 class="text-xl font-semibold text-white mb-3">
+                    <i class="fas fa-exclamation-triangle mr-2 text-yellow-500"></i>Suspicious Keywords Detected
+                </h2>
+                <div id="keywordsContainer" class="min-h-[150px] max-h-[200px] overflow-y-auto">
+                    <div class="text-gray-500 text-center py-4">
+                        <i class="fas fa-search text-2xl mb-2 block"></i>
+                        No suspicious keywords detected yet
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Analysis Summary -->
+            <div class="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-blue-500/30">
+                <h2 class="text-lg font-semibold text-white mb-3">
+                    <i class="fas fa-chart-simple mr-2 text-blue-500"></i>Quick Summary
+                </h2>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Total Words Spoken:</span>
+                        <span id="totalWords" class="text-white font-semibold">0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Suspicious Keywords:</span>
+                        <span id="suspiciousCount" class="text-yellow-400 font-semibold">0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Risk Level:</span>
+                        <span id="summaryRisk" class="text-gray-400 font-semibold">-</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Analysis Time:</span>
+                        <span id="analysisTime" class="text-gray-400 text-xs">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Speech Recognition Setup
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+let isRecording = false;
+let silenceTimeout = null;
+let silenceTimerInterval = null;
+let silenceSeconds = 0;
+let finalTranscript = '';
+let allWords = [];
+let detectedKeywordsSet = new Set();
+let currentAnalysisData = null;
+
+if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    
+    recognition.onstart = () => {
+        isRecording = true;
+        document.getElementById('startRecordBtn').disabled = true;
+        document.getElementById('stopRecordBtn').disabled = false;
+        document.getElementById('recordingStatus').classList.remove('hidden');
+        document.getElementById('silenceWarning').classList.remove('hidden');
+        
+        // Update mic icon
+        const micIcon = document.getElementById('micIcon');
+        micIcon.classList.add('recording-active');
+        micIcon.innerHTML = '<i class="fas fa-microphone-alt text-5xl text-red-500"></i>';
+        
+        resetSilenceTimer();
+    };
+    
+    recognition.onresult = (event) => {
+        let interimTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                finalTranscript += transcript + ' ';
+                addToConversation(transcript, true);
+                // Send to backend for analysis
+                analyzeWithBackend(transcript);
+            } else {
+                interimTranscript += transcript;
+            }
+        }
+        
+        if (interimTranscript) {
+            updateInterimDisplay(interimTranscript);
+        }
+        
+        // Reset silence timer on any speech
+        resetSilenceTimer();
+    };
+    
+    recognition.onerror = (event) => {
+        console.error('Recognition error:', event.error);
+        if (event.error === 'no-speech') {
+            // Continue listening
+        } else {
+            stopRecording();
+        }
+    };
+    
+    recognition.onend = () => {
+        if (isRecording) {
+            recognition.start();
+        }
+    };
+} else {
+    document.getElementById('transcriptArea').innerHTML = '<div class="text-red-400 text-center py-8">❌ Speech recognition not supported. Please use Chrome browser.</div>';
+}
+
+function resetSilenceTimer() {
+    if (silenceTimeout) clearTimeout(silenceTimeout);
+    if (silenceTimerInterval) clearInterval(silenceTimerInterval);
+    
+    silenceSeconds = 0;
+    const silenceTimerSpan = document.getElementById('silenceTimer');
+    silenceTimerSpan.classList.remove('hidden');
+    
+    silenceTimerInterval = setInterval(() => {
+        silenceSeconds++;
+        silenceTimerSpan.textContent = `Silence: ${silenceSeconds}s`;
+        
+        if (silenceSeconds >= 5) {
+            if (isRecording) {
+                stopRecording();
+                addSystemMessage('⏹️ Auto-stopped after 5 seconds of silence');
+            }
+        }
+    }, 1000);
+    
+    silenceTimeout = setTimeout(() => {}, 5000);
+}
+
+function stopRecording() {
+    if (silenceTimeout) clearTimeout(silenceTimeout);
+    if (silenceTimerInterval) clearInterval(silenceTimerInterval);
+    
+    if (recognition && isRecording) {
+        recognition.stop();
+        isRecording = false;
+    }
+    
+    document.getElementById('startRecordBtn').disabled = false;
+    document.getElementById('stopRecordBtn').disabled = true;
+    document.getElementById('recordingStatus').classList.add('hidden');
+    document.getElementById('silenceWarning').classList.add('hidden');
+    document.getElementById('silenceTimer').classList.add('hidden');
+    
+    const micIcon = document.getElementById('micIcon');
+    micIcon.classList.remove('recording-active');
+    micIcon.innerHTML = '<i class="fas fa-microphone text-5xl text-gray-400"></i>';
+}
+
+function addToConversation(text, isFinal) {
+    const transcriptArea = document.getElementById('transcriptArea');
+    
+    const interimElement = document.getElementById('interim-transcript');
+    if (interimElement) interimElement.remove();
+    
+    if (isFinal) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'mb-3 animate-slide-up';
+        
+        // Highlight suspicious words based on backend results if available
+        let highlightedText = escapeHtml(text);
+        if (currentAnalysisData && currentAnalysisData.keywords_found) {
+            currentAnalysisData.keywords_found.forEach(keyword => {
+                const regex = new RegExp(`(${escapeRegex(keyword)})`, 'gi');
+                highlightedText = highlightedText.replace(regex, `<span class="bg-red-500/50 text-red-200 font-bold px-1 rounded">$1</span>`);
+            });
+        }
+        
+        messageDiv.innerHTML = `
+            <div class="flex items-start space-x-2">
+                <div class="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <i class="fas fa-user text-blue-400 text-xs"></i>
+                </div>
+                <div class="flex-1 bg-blue-600/10 rounded-lg p-2">
+                    <div class="text-white text-sm leading-relaxed">${highlightedText}</div>
+                    <div class="text-gray-500 text-xs mt-1">${new Date().toLocaleTimeString()}</div>
+                </div>
+            </div>
+        `;
+        
+        transcriptArea.appendChild(messageDiv);
+        transcriptArea.scrollTop = transcriptArea.scrollHeight;
+        
+        const words = text.split(/\s+/);
+        allWords.push(...words);
+        document.getElementById('totalWords').textContent = allWords.length;
+        document.getElementById('wordCount').textContent = `${allWords.length} words`;
+    }
+}
+
+function updateInterimDisplay(text) {
+    const transcriptArea = document.getElementById('transcriptArea');
+    
+    const existingInterim = document.getElementById('interim-transcript');
+    if (existingInterim) existingInterim.remove();
+    
+    const interimDiv = document.createElement('div');
+    interimDiv.id = 'interim-transcript';
+    interimDiv.className = 'mb-3 animate-pulse';
+    interimDiv.innerHTML = `
+        <div class="flex items-start space-x-2">
+            <div class="w-6 h-6 bg-gray-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                <i class="fas fa-microphone text-gray-400 text-xs"></i>
+            </div>
+            <div class="flex-1 bg-gray-700/30 rounded-lg p-2">
+                <div class="text-gray-400 text-sm italic">${escapeHtml(text)}</div>
+                <div class="text-gray-600 text-xs mt-1">Speaking...</div>
+            </div>
+        </div>
+    `;
+    
+    transcriptArea.appendChild(interimDiv);
+    transcriptArea.scrollTop = transcriptArea.scrollHeight;
+}
+
+function addSystemMessage(text) {
+    const transcriptArea = document.getElementById('transcriptArea');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'mb-3';
+    messageDiv.innerHTML = `
+        <div class="flex items-start space-x-2">
+            <div class="w-6 h-6 bg-yellow-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                <i class="fas fa-info-circle text-yellow-400 text-xs"></i>
+            </div>
+            <div class="flex-1 bg-yellow-600/10 rounded-lg p-2">
+                <div class="text-yellow-400 text-xs">${text}</div>
+            </div>
+        </div>
+    `;
+    transcriptArea.appendChild(messageDiv);
+    transcriptArea.scrollTop = transcriptArea.scrollHeight;
+}
+
+async function analyzeWithBackend(text) {
+    try {
+        const response = await fetch('/api/analyze_live', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transcript: text })
+        });
+        
+        const data = await response.json();
+        currentAnalysisData = data;
+        
+        if (data.success) {
+            updateUIWithAnalysis(data);
+        }
+    } catch (error) {
+        console.error('Analysis error:', error);
+    }
+}
+
+function updateUIWithAnalysis(data) {
+    // Update risk score
+    const fraudScore = data.fraud_score;
+    document.getElementById('riskPercentage').textContent = `${Math.round(fraudScore)}%`;
+    
+    // Update circle
+    const circumference = 439.82;
+    const offset = circumference - (fraudScore / 100) * circumference;
+    document.getElementById('riskCircle').style.strokeDashoffset = offset;
+    
+    // Update risk level display
+    const riskLevel = data.risk_level;
+    const riskLevelCard = document.getElementById('riskLevelCard');
+    const riskLevelText = document.getElementById('riskLevelText');
+    const summaryRisk = document.getElementById('summaryRisk');
+    const recommendationCard = document.getElementById('recommendationCard');
+    const recommendationText = document.getElementById('recommendationText');
+    
+    // Set color based on risk level
+    if (riskLevel === 'Critical') {
+        riskLevelCard.className = 'rounded-lg p-4 text-center mb-4 transition-all duration-300 bg-red-500/30 border-2 border-red-500 animate-pulse';
+        riskLevelText.innerHTML = '<i class="fas fa-skull-crosswalk mr-2"></i>🔴🔴 CRITICAL RISK - SCAM CONFIRMED! 🔴🔴';
+        riskLevelText.className = 'text-lg font-semibold text-red-400';
+        summaryRisk.innerHTML = '<span class="text-red-400 font-bold text-lg">🔴 CRITICAL - SCAM DETECTED!</span>';
+        recommendationCard.className = 'rounded-lg p-4 bg-red-500/30 border-2 border-red-500';
+        recommendationText.innerHTML = data.warning_message + '<br><br>' + data.detailed_advice.replace(/\n/g, '<br>');
+    } else if (riskLevel === 'High') {
+        riskLevelCard.className = 'rounded-lg p-4 text-center mb-4 transition-all duration-300 bg-red-500/20 border-2 border-red-500';
+        riskLevelText.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>🔴 HIGH RISK - Likely Scam';
+        riskLevelText.className = 'text-lg font-semibold text-red-400';
+        summaryRisk.innerHTML = '<span class="text-red-400 font-bold">🔴 HIGH RISK - Scam Likely</span>';
+        recommendationCard.className = 'rounded-lg p-4 bg-red-500/20 border-2 border-red-500';
+        recommendationText.innerHTML = data.warning_message + '<br><br>' + data.detailed_advice.replace(/\n/g, '<br>');
+    } else if (riskLevel === 'Medium-High') {
+        riskLevelCard.className = 'rounded-lg p-4 text-center mb-4 transition-all duration-300 bg-orange-500/20 border-2 border-orange-500';
+        riskLevelText.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>⚠️ MEDIUM-HIGH RISK - Strong Indicators';
+        riskLevelText.className = 'text-lg font-semibold text-orange-400';
+        summaryRisk.innerHTML = '<span class="text-orange-400 font-bold">🟠 MEDIUM-HIGH - Be Very Cautious</span>';
+        recommendationCard.className = 'rounded-lg p-4 bg-orange-500/20 border-2 border-orange-500';
+        recommendationText.innerHTML = data.warning_message + '<br><br>' + data.detailed_advice.replace(/\n/g, '<br>');
+    } else if (riskLevel === 'Medium') {
+        riskLevelCard.className = 'rounded-lg p-4 text-center mb-4 transition-all duration-300 bg-yellow-500/20 border-2 border-yellow-500';
+        riskLevelText.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>⚠️ MEDIUM RISK - Suspicious';
+        riskLevelText.className = 'text-lg font-semibold text-yellow-400';
+        summaryRisk.innerHTML = '<span class="text-yellow-400 font-bold">🟡 MEDIUM RISK - Be Cautious</span>';
+        recommendationCard.className = 'rounded-lg p-4 bg-yellow-500/20 border-2 border-yellow-500';
+        recommendationText.innerHTML = data.warning_message + '<br><br>' + data.detailed_advice.replace(/\n/g, '<br>');
+    } else if (riskLevel === 'Low') {
+        riskLevelCard.className = 'rounded-lg p-4 text-center mb-4 transition-all duration-300 bg-blue-500/20 border border-blue-500';
+        riskLevelText.innerHTML = '<i class="fas fa-info-circle mr-2"></i>🔵 LOW RISK - Minor Suspicious Elements';
+        riskLevelText.className = 'text-lg font-semibold text-blue-400';
+        summaryRisk.innerHTML = '<span class="text-blue-400 font-bold">🔵 LOW RISK - Stay Alert</span>';
+        recommendationCard.className = 'rounded-lg p-4 bg-blue-500/20 border border-blue-500';
+        recommendationText.innerHTML = data.warning_message + '<br><br>' + data.detailed_advice.replace(/\n/g, '<br>');
+    } else {
+        riskLevelCard.className = 'rounded-lg p-4 text-center mb-4 transition-all duration-300 bg-green-500/20 border border-green-500';
+        riskLevelText.innerHTML = '<i class="fas fa-shield-alt mr-2"></i>✅ SAFE - No Scam Patterns';
+        riskLevelText.className = 'text-lg font-semibold text-green-400';
+        summaryRisk.innerHTML = '<span class="text-green-400 font-bold">🟢 SAFE - No Threat Detected</span>';
+        recommendationCard.className = 'rounded-lg p-4 bg-green-500/20 border border-green-500';
+        recommendationText.innerHTML = data.warning_message;
+    }
+    
+    // Update keywords container
+    updateKeywordsContainer(data.keywords_found || [], data.patterns_detected || [], data.red_flags || []);
+    
+    // Update analysis time
+    if (data.analysis_time) {
+        document.getElementById('analysisTime').textContent = data.analysis_time;
+    }
+    
+    // Update suspicious count
+    const totalKeywords = (data.keywords_found || []).length + (data.red_flags || []).length;
+    document.getElementById('suspiciousCount').textContent = totalKeywords;
+}
+
+function updateKeywordsContainer(keywords, patterns, redFlags) {
+    const container = document.getElementById('keywordsContainer');
+    container.innerHTML = '';
+    
+    let hasItems = false;
+    
+    // Add red flags first (most important)
+    if (redFlags && redFlags.length > 0) {
+        hasItems = true;
+        redFlags.forEach(flag => {
+            const badge = document.createElement('div');
+            badge.className = 'flex items-center justify-between bg-red-500/20 border border-red-500/50 rounded-lg p-2 mb-2 animate-slide-up';
+            badge.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <span class="text-xl">🚨</span>
+                    <div>
+                        <span class="text-red-400 font-medium">${escapeHtml(flag)}</span>
+                        <span class="text-xs text-gray-400 ml-2">Red Flag Phrase</span>
+                    </div>
+                </div>
+                <span class="text-xs font-bold text-red-400">+20</span>
+            `;
+            container.appendChild(badge);
+        });
+    }
+    
+    // Add detected keywords
+    if (keywords && keywords.length > 0) {
+        hasItems = true;
+        keywords.forEach(keyword => {
+            const badge = document.createElement('div');
+            badge.className = 'flex items-center justify-between bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-2 mb-2 animate-slide-up';
+            badge.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <span class="text-xl">⚠️</span>
+                    <div>
+                        <span class="text-yellow-400 font-medium">${escapeHtml(keyword)}</span>
+                        <span class="text-xs text-gray-400 ml-2">Suspicious Keyword</span>
+                    </div>
+                </div>
+                <span class="text-xs font-bold text-yellow-400">Detected</span>
+            `;
+            container.appendChild(badge);
+        });
+    }
+    
+    // Add detected patterns
+    if (patterns && patterns.length > 0) {
+        hasItems = true;
+        patterns.forEach(pattern => {
+            const patternName = pattern.replace(/_/g, ' ').toUpperCase();
+            let icon = '📋';
+            let color = 'blue';
+            
+            if (pattern.includes('financial')) icon = '💰', color = 'red';
+            else if (pattern.includes('threat')) icon = '👮', color = 'red';
+            else if (pattern.includes('urgent')) icon = '⏰', color = 'orange';
+            else if (pattern.includes('reward')) icon = '🎁', color = 'purple';
+            else if (pattern.includes('payment')) icon = '💸', color = 'red';
+            
+            const badge = document.createElement('div');
+            badge.className = `flex items-center justify-between bg-${color}-500/10 border border-${color}-500/30 rounded-lg p-2 mb-2 animate-slide-up`;
+            badge.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <span class="text-xl">${icon}</span>
+                    <div>
+                        <span class="text-${color}-400 font-medium">${patternName}</span>
+                        <span class="text-xs text-gray-400 ml-2">Scam Pattern</span>
+                    </div>
+                </div>
+                <span class="text-xs font-bold text-${color}-400">Detected</span>
+            `;
+            container.appendChild(badge);
+        });
+    }
+    
+    if (!hasItems) {
+        container.innerHTML = '<div class="text-gray-500 text-center py-4"><i class="fas fa-search text-2xl mb-2 block"></i>No suspicious keywords detected yet</div>';
+    }
+}
+
+function testPhrase(phrase) {
+    if (!isRecording) {
+        addSystemMessage(`🧪 Test phrase: "${phrase}"`);
+        addToConversation(phrase, true);
+        analyzeWithBackend(phrase);
+        
+        const words = phrase.split(/\s+/);
+        allWords.push(...words);
+        document.getElementById('totalWords').textContent = allWords.length;
+        document.getElementById('wordCount').textContent = `${allWords.length} words`;
+    } else {
+        addSystemMessage(`⚠️ Please stop recording first, then use test phrases`);
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function escapeRegex(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Event Listeners
+document.getElementById('startRecordBtn').addEventListener('click', () => {
+    if (recognition) {
+        finalTranscript = '';
+        detectedKeywordsSet.clear();
+        allWords = [];
+        currentAnalysisData = null;
+        document.getElementById('transcriptArea').innerHTML = '';
+        document.getElementById('keywordsContainer').innerHTML = '<div class="text-gray-500 text-center py-4"><i class="fas fa-search text-2xl mb-2 block"></i>No suspicious keywords detected yet</div>';
+        document.getElementById('riskPercentage').textContent = '0%';
+        document.getElementById('riskCircle').style.strokeDashoffset = '439.82';
+        document.getElementById('totalWords').textContent = '0';
+        document.getElementById('suspiciousCount').textContent = '0';
+        document.getElementById('wordCount').textContent = '0 words';
+        document.getElementById('analysisTime').textContent = '-';
+        
+        // Reset risk card
+        document.getElementById('riskLevelCard').className = 'rounded-lg p-4 text-center mb-4 transition-all duration-300 bg-gray-900/50';
+        document.getElementById('riskLevelText').innerHTML = '<i class="fas fa-shield-alt mr-2"></i>No analysis yet';
+        document.getElementById('riskLevelText').className = 'text-lg font-semibold text-gray-400';
+        document.getElementById('summaryRisk').innerHTML = '<span class="text-gray-400 font-semibold">-</span>';
+        document.getElementById('recommendationCard').className = 'rounded-lg p-4 bg-gray-900/50';
+        document.getElementById('recommendationText').innerHTML = 'Start speaking to analyze the call';
+        
+        recognition.start();
+    }
+});
+
+document.getElementById('stopRecordBtn').addEventListener('click', stopRecording);
+</script>
+{% endblock %}

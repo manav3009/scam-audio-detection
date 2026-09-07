@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CallShield AI - {% block title %}Fraud Call Detection{% endblock %}</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'glow': 'glow 2s ease-in-out infinite',
+                        'slide-up': 'slideUp 0.5s ease-out',
+                        'bounce-slow': 'bounce 2s infinite',
+                    },
+                    keyframes: {
+                        glow: {
+                            '0%, 100%': { 'box-shadow': '0 0 5px rgba(59,130,246,0.5)' },
+                            '50%': { 'box-shadow': '0 0 20px rgba(59,130,246,0.8)' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2563eb; }
+        
+        /* Voice recording animation */
+        @keyframes recordingPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+        }
+        .recording-active {
+            animation: recordingPulse 1.5s ease-in-out infinite;
+        }
+    </style>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 min-h-screen">
+    <!-- Navigation Bar -->
+    <nav class="bg-gray-900/90 backdrop-blur-md border-b border-blue-500/30 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-shield-alt text-3xl text-blue-500 animate-pulse-slow"></i>
+                    <span class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                        CallShield AI
+                    </span>
+                </div>
+                
+                {% if session.logged_in %}
+                <div class="flex items-center space-x-4">
+                    <!-- Back Navigation Button -->
+                    <button onclick="goBack()" class="px-3 py-2 bg-gray-700/50 hover:bg-gray-700/70 text-gray-300 rounded-lg transition-all duration-300 text-sm">
+                        <i class="fas fa-arrow-left mr-1"></i> Back
+                    </button>
+                    
+                    <span class="text-gray-300 text-sm">
+                        <i class="fas fa-user-shield mr-1"></i> {{ session.username }}
+                    </span>
+                    <button onclick="logout()" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-all duration-300 text-sm">
+                        <i class="fas fa-sign-out-alt mr-1"></i> Logout
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="bg-gray-900/50 border-t border-blue-500/20 mt-16 py-6">
+        <div class="max-w-7xl mx-auto px-4 text-center text-gray-400 text-sm">
+            <p>🛡️ CallShield AI - Protecting You from Voice Scams | Powered by Advanced AI Detection</p>
+        </div>
+    </footer>
+    
+    <!-- Global JavaScript -->
+    <script>
+        async function logout() {
+            const response = await fetch('/api/logout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                window.location.href = '/login';
+            }
+        }
+        
+        function goBack() {
+            window.history.back();
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.classList.add('animate-slide-up');
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

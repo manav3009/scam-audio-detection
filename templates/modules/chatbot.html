@@ -1,0 +1,399 @@
+{% extends "base.html" %}
+
+{% block title %}Security Chatbot{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <!-- Navigation Buttons -->
+    <div class="flex gap-3 mb-6">
+        <a href="/dashboard" class="px-4 py-2 bg-gray-700/50 hover:bg-gray-700/70 text-gray-300 rounded-lg transition-all duration-300">
+            <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
+        </a>
+        <button onclick="window.history.back()" class="px-4 py-2 bg-gray-700/50 hover:bg-gray-700/70 text-gray-300 rounded-lg transition-all duration-300">
+            <i class="fas fa-arrow-left mr-2"></i>Previous Page
+        </button>
+    </div>
+    
+    <div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-pink-500/30 overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-pink-600/20 to-purple-600/20 p-4 border-b border-pink-500/30">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-robot text-2xl text-pink-500 animate-bounce-slow"></i>
+                    <div>
+                        <h1 class="text-xl font-bold text-white">AI Security Assistant</h1>
+                        <p class="text-xs text-gray-400">Specialized in Scam Detection & Cybersecurity</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span class="text-xs text-gray-400">Online</span>
+                    <button id="clearChatBtn" class="ml-2 px-2 py-1 bg-gray-700/50 hover:bg-gray-700/70 text-gray-400 rounded text-xs transition">
+                        <i class="fas fa-trash-alt mr-1"></i>Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat Messages Area -->
+        <div id="chatMessages" class="h-[500px] overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-900/50 to-gray-800/50">
+            <!-- Welcome Message -->
+            <div class="flex items-start space-x-3 animate-slide-up">
+                <div class="w-10 h-10 bg-pink-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-robot text-pink-500 text-lg"></i>
+                </div>
+                <div class="flex-1 bg-gray-900/50 rounded-lg p-3 max-w-[85%]">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <span class="text-pink-400 text-xs font-semibold">AI ASSISTANT</span>
+                        <span class="text-gray-600 text-xs">• just now</span>
+                    </div>
+                    <p class="text-gray-300 text-sm">👋 <strong>Hello! I'm your AI Security Assistant</strong></p>
+                    <p class="text-gray-400 text-sm mt-2">I can help you with:</p>
+                    <div class="grid grid-cols-2 gap-2 mt-2">
+                        <div class="flex items-center space-x-2 text-xs text-gray-400">
+                            <i class="fas fa-check-circle text-green-500"></i>
+                            <span>Identifying scam calls</span>
+                        </div>
+                        <div class="flex items-center space-x-2 text-xs text-gray-400">
+                            <i class="fas fa-check-circle text-green-500"></i>
+                            <span>Banking/OTP security</span>
+                        </div>
+                        <div class="flex items-center space-x-2 text-xs text-gray-400">
+                            <i class="fas fa-check-circle text-green-500"></i>
+                            <span>Reporting fraud</span>
+                        </div>
+                        <div class="flex items-center space-x-2 text-xs text-gray-400">
+                            <i class="fas fa-check-circle text-green-500"></i>
+                            <span>Protection tips</span>
+                        </div>
+                    </div>
+                    <div class="mt-3 p-2 bg-yellow-500/10 rounded border border-yellow-500/30">
+                        <p class="text-yellow-400 text-xs">
+                            <i class="fas fa-lightbulb mr-1"></i>
+                            <strong>Try asking:</strong> "How to identify a scam call?" or "What is bank OTP scam?"
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Suggestions Carousel -->
+        <div class="px-4 py-3 border-t border-gray-700 bg-gray-900/30">
+            <p class="text-xs text-gray-500 mb-2"><i class="fas fa-bolt mr-1 text-yellow-500"></i>Quick questions:</p>
+            <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                <button onclick="quickQuestion('How to identify a scam call?')" class="flex-shrink-0 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-full text-xs transition whitespace-nowrap">
+                    🔍 Identify scam call
+                </button>
+                <button onclick="quickQuestion('What is bank OTP scam?')" class="flex-shrink-0 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-full text-xs transition whitespace-nowrap">
+                    🏦 Bank OTP scam
+                </button>
+                <button onclick="quickQuestion('How to report a scam?')" class="flex-shrink-0 px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-full text-xs transition whitespace-nowrap">
+                    📞 Report scam
+                </button>
+                <button onclick="quickQuestion('What is phishing?')" class="flex-shrink-0 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 rounded-full text-xs transition whitespace-nowrap">
+                    🎣 What is phishing?
+                </button>
+                <button onclick="quickQuestion('Credit card scam prevention')" class="flex-shrink-0 px-3 py-1.5 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 rounded-full text-xs transition whitespace-nowrap">
+                    💳 Credit card scams
+                </button>
+                <button onclick="quickQuestion('IRS scam warning signs')" class="flex-shrink-0 px-3 py-1.5 bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 rounded-full text-xs transition whitespace-nowrap">
+                    🇺🇸 IRS scams
+                </button>
+                <button onclick="quickQuestion('What is vishing?')" class="flex-shrink-0 px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 rounded-full text-xs transition whitespace-nowrap">
+                    📞 Vishing attacks
+                </button>
+                <button onclick="quickQuestion('How to protect personal information?')" class="flex-shrink-0 px-3 py-1.5 bg-teal-600/20 hover:bg-teal-600/30 text-teal-400 rounded-full text-xs transition whitespace-nowrap">
+                    🔐 Protect personal info
+                </button>
+            </div>
+        </div>
+        
+        <!-- Input Area -->
+        <div class="p-4 border-t border-gray-700 bg-gray-900/50">
+            <div class="flex space-x-3">
+                <div class="flex-1 relative">
+                    <input type="text" id="userInput" placeholder="Ask me anything about scams, fraud, or cybersecurity..." 
+                           class="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 text-white text-sm pr-10">
+                    <i class="fas fa-lock absolute right-3 top-3 text-gray-500 text-xs"></i>
+                </div>
+                <button id="sendBtn" class="px-5 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white rounded-lg transition-all duration-300">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div class="flex justify-between items-center mt-2">
+                <p class="text-xs text-gray-500">
+                    <i class="fas fa-shield-alt mr-1 text-green-500"></i> 
+                    AI assistant specialized in cybersecurity & scam prevention
+                </p>
+                <p class="text-xs text-gray-600">
+                    <i class="fas fa-database mr-1"></i>Powered by Advanced AI
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Disclaimer Modal (Hidden by default) -->
+    <div class="mt-4 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
+        <p class="text-yellow-400 text-xs text-center">
+            <i class="fas fa-info-circle mr-1"></i>
+            <strong>Note:</strong> This AI assistant provides information for educational purposes. Always verify critical security information through official channels.
+        </p>
+    </div>
+</div>
+
+<script>
+const chatMessages = document.getElementById('chatMessages');
+const userInput = document.getElementById('userInput');
+const sendBtn = document.getElementById('sendBtn');
+const clearChatBtn = document.getElementById('clearChatBtn');
+
+// Store chat history in localStorage
+let chatHistory = [];
+
+// Load chat history on page load
+function loadChatHistory() {
+    const saved = localStorage.getItem('callshield_chat_history');
+    if (saved) {
+        try {
+            chatHistory = JSON.parse(saved);
+            // Display saved messages
+            chatHistory.forEach(msg => {
+                if (msg.role === 'user') {
+                    displayUserMessage(msg.content, false);
+                } else {
+                    displayBotMessage(msg.content, false);
+                }
+            });
+        } catch(e) {
+            console.error('Error loading chat history:', e);
+        }
+    }
+}
+
+// Save chat history
+function saveChatHistory() {
+    localStorage.setItem('callshield_chat_history', JSON.stringify(chatHistory));
+}
+
+// Clear chat history
+clearChatBtn.addEventListener('click', () => {
+    if (confirm('Clear all chat history?')) {
+        chatHistory = [];
+        localStorage.removeItem('callshield_chat_history');
+        // Reset chat area but keep welcome message
+        chatMessages.innerHTML = `
+            <div class="flex items-start space-x-3 animate-slide-up">
+                <div class="w-10 h-10 bg-pink-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-robot text-pink-500 text-lg"></i>
+                </div>
+                <div class="flex-1 bg-gray-900/50 rounded-lg p-3 max-w-[85%]">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <span class="text-pink-400 text-xs font-semibold">AI ASSISTANT</span>
+                        <span class="text-gray-600 text-xs">• just now</span>
+                    </div>
+                    <p class="text-gray-300 text-sm">👋 Chat history cleared! How can I help you today?</p>
+                </div>
+            </div>
+        `;
+    }
+});
+
+sendBtn.addEventListener('click', sendMessage);
+userInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
+
+function quickQuestion(question) {
+    userInput.value = question;
+    sendMessage();
+}
+
+async function sendMessage() {
+    const message = userInput.value.trim();
+    if (!message) return;
+    
+    // Disable input while processing
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    
+    // Add user message to chat
+    displayUserMessage(message);
+    
+    // Save to history
+    chatHistory.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
+    saveChatHistory();
+    
+    userInput.value = '';
+    
+    // Show typing indicator
+    const typingId = showTypingIndicator();
+    
+    try {
+        const response = await fetch('/api/chatbot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: message })
+        });
+        
+        const data = await response.json();
+        
+        // Remove typing indicator
+        removeTypingIndicator(typingId);
+        
+        // Add bot response
+        displayBotMessage(data.response);
+        
+        // Save to history
+        chatHistory.push({ role: 'assistant', content: data.response, timestamp: new Date().toISOString() });
+        saveChatHistory();
+        
+    } catch (error) {
+        removeTypingIndicator(typingId);
+        displayBotMessage('❌ Sorry, I encountered an error. Please try again.');
+        console.error('Chatbot error:', error);
+    } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+    }
+}
+
+function displayUserMessage(message, saveToHistory = true) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'flex items-start space-x-3 animate-slide-up justify-end';
+    
+    messageDiv.innerHTML = `
+        <div class="flex-1 bg-blue-600/20 rounded-lg p-3 max-w-[75%] ml-auto">
+            <div class="flex items-center justify-end space-x-2 mb-1">
+                <span class="text-gray-500 text-xs">${new Date().toLocaleTimeString()}</span>
+                <span class="text-blue-400 text-xs font-semibold">YOU</span>
+            </div>
+            <p class="text-white text-sm">${escapeHtml(message)}</p>
+        </div>
+        <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-user text-blue-400 text-sm"></i>
+        </div>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function displayBotMessage(message, saveToHistory = true) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'flex items-start space-x-3 animate-slide-up';
+    
+    // Format the message with markdown-style
+    let formattedMessage = escapeHtml(message);
+    formattedMessage = formattedMessage.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    formattedMessage = formattedMessage.replace(/\n/g, '<br>');
+    formattedMessage = formattedMessage.replace(/•/g, '•');
+    formattedMessage = formattedMessage.replace(/✅/g, '✅');
+    formattedMessage = formattedMessage.replace(/⚠️/g, '⚠️');
+    formattedMessage = formattedMessage.replace(/🚨/g, '🚨');
+    formattedMessage = formattedMessage.replace(/🔴/g, '🔴');
+    formattedMessage = formattedMessage.replace(/🟡/g, '🟡');
+    formattedMessage = formattedMessage.replace(/🟢/g, '🟢');
+    
+    messageDiv.innerHTML = `
+        <div class="w-8 h-8 bg-pink-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-robot text-pink-500 text-sm"></i>
+        </div>
+        <div class="flex-1 bg-gray-900/50 rounded-lg p-3 max-w-[75%]">
+            <div class="flex items-center space-x-2 mb-2">
+                <span class="text-pink-400 text-xs font-semibold">AI ASSISTANT</span>
+                <span class="text-gray-600 text-xs">• ${new Date().toLocaleTimeString()}</span>
+            </div>
+            <div class="text-gray-300 text-sm leading-relaxed">${formattedMessage}</div>
+        </div>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function showTypingIndicator() {
+    const id = 'typing-' + Date.now();
+    const typingDiv = document.createElement('div');
+    typingDiv.id = id;
+    typingDiv.className = 'flex items-start space-x-3';
+    typingDiv.innerHTML = `
+        <div class="w-8 h-8 bg-pink-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-robot text-pink-500 text-sm"></i>
+        </div>
+        <div class="flex-1 bg-gray-900/50 rounded-lg p-3 max-w-[75%]">
+            <div class="flex space-x-1">
+                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0s"></div>
+                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+            </div>
+            <p class="text-gray-500 text-xs mt-1">AI is thinking...</p>
+        </div>
+    `;
+    chatMessages.appendChild(typingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return id;
+}
+
+function removeTypingIndicator(id) {
+    const element = document.getElementById(id);
+    if (element) element.remove();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Load chat history on page load
+loadChatHistory();
+</script>
+
+<style>
+/* Custom scrollbar for chat */
+#chatMessages::-webkit-scrollbar {
+    width: 4px;
+}
+#chatMessages::-webkit-scrollbar-track {
+    background: #1f2937;
+    border-radius: 10px;
+}
+#chatMessages::-webkit-scrollbar-thumb {
+    background: #ec4899;
+    border-radius: 10px;
+}
+#chatMessages::-webkit-scrollbar-thumb:hover {
+    background: #be185d;
+}
+
+/* Animation for new messages */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+}
+
+/* Bounce animation for typing indicator */
+@keyframes bounce {
+    0%, 60%, 100% {
+        transform: translateY(0);
+    }
+    30% {
+        transform: translateY(-5px);
+    }
+}
+
+.animate-bounce {
+    animation: bounce 1.4s ease-in-out infinite;
+}
+</style>
+{% endblock %}
