@@ -1,10 +1,7 @@
 from flask import Flask
-from flask_session import Session
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'callshield_secret_key_2024'
-app.config['SESSION_TYPE'] = 'filesystem'
-Session(app)
 
 from routes.views_routes import views_bp
 from routes.auth_routes import auth_bp
