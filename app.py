@@ -9,6 +9,7 @@ app = Flask(
     static_folder=os.path.join(BASE_DIR, 'static')
 )
 app.config['SECRET_KEY'] = 'callshield_secret_key_2024'
+app.url_map.strict_slashes = False
 
 from routes.views_routes import views_bp
 from routes.auth_routes import auth_bp

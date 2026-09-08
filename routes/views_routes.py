@@ -19,6 +19,8 @@ def dashboard():
     return render_template('dashboard.html')
 
 @views_bp.route('/modules/dialer')
+@views_bp.route('/dialer')
+@views_bp.route('/phone')
 def dialer():
     return render_template('modules/dialer.html')
 
