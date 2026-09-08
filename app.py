@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, session
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -10,6 +10,10 @@ app = Flask(
 )
 app.config['SECRET_KEY'] = 'callshield_secret_key_2024'
 app.url_map.strict_slashes = False
+
+@app.before_request
+def clear_obsolete_sessions():
+    session.clear()
 
 from routes.views_routes import views_bp
 from routes.auth_routes import auth_bp
