@@ -16,7 +16,25 @@
     </div>
     
     <h1 class="text-3xl font-bold text-white">🎵 Audio File Analysis</h1>
-    <p class="text-gray-400">Upload any audio file - AI will analyze and detect scam patterns</p>
+    <p class="text-gray-400">Upload any audio file or select sample audio — AI will analyze and detect scam patterns</p>
+    
+    <div class="bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-xl p-4 border border-purple-500/30 space-y-3">
+        <p class="text-sm text-gray-300"><i class="fas fa-play-circle mr-2 text-purple-400"></i>Quick Test Sample Audio Files:</p>
+        <div class="flex flex-wrap gap-2">
+            <button onclick="testPresetAudio('bank_otp_scam_call.mp3')" class="px-3 py-1.5 bg-purple-600/40 hover:bg-purple-600/70 text-purple-200 rounded-lg text-xs font-semibold transition border border-purple-500/30">
+                🏦 Bank OTP Scam (mp3)
+            </button>
+            <button onclick="testPresetAudio('irs_police_tax_fine.wav')" class="px-3 py-1.5 bg-purple-600/40 hover:bg-purple-600/70 text-purple-200 rounded-lg text-xs font-semibold transition border border-purple-500/30">
+                💰 IRS Threat Fine (wav)
+            </button>
+            <button onclick="testPresetAudio('lottery_winner_prize.m4a')" class="px-3 py-1.5 bg-purple-600/40 hover:bg-purple-600/70 text-purple-200 rounded-lg text-xs font-semibold transition border border-purple-500/30">
+                🎁 Lottery Prize Reward (m4a)
+            </button>
+            <button onclick="testPresetAudio('legitimate_hospital_call.mp3')" class="px-3 py-1.5 bg-green-600/40 hover:bg-green-600/70 text-green-200 rounded-lg text-xs font-semibold transition border border-green-500/30">
+                ✅ Normal Doctor Appointment (mp3)
+            </button>
+        </div>
+    </div>
     
     <div class="grid lg:grid-cols-2 gap-6">
         <div class="space-y-6">
@@ -27,7 +45,7 @@
                 
                 <div id="dropZone" class="border-2 border-dashed border-purple-500/50 rounded-lg p-8 text-center hover:border-purple-500 hover:bg-purple-500/10 transition-all cursor-pointer">
                     <i class="fas fa-cloud-upload-alt text-5xl text-purple-500 mb-3"></i>
-                    <p class="text-gray-300">Drag & drop audio file here or click to browse</p>
+                    <p class="text-gray-300">Drag & drop audio file here or tap to browse</p>
                     <p class="text-gray-500 text-sm mt-2">Supports MP3, WAV, M4A, OGG, AAC (Any Audio File)</p>
                     <input type="file" id="audioFile" accept="audio/*,.mp3,.wav,.m4a,.ogg,.mpeg,.aac" class="hidden">
                 </div>
@@ -57,7 +75,7 @@
                     <i class="fas fa-info-circle mr-2 text-blue-500"></i>How it works
                 </h2>
                 <div class="space-y-2 text-sm text-gray-400">
-                    <p>1️⃣ <strong>Upload</strong> any audio file from your device</p>
+                    <p>1️⃣ <strong>Upload or Select</strong> any audio file from your device</p>
                     <p>2️⃣ <strong>AI Engine</strong> processes and inspects for fraud indicators</p>
                     <p>3️⃣ <strong>Instant Analysis</strong> generates risk score and safety advice</p>
                 </div>
@@ -93,7 +111,11 @@ const clearFileBtn = document.getElementById('clearFileBtn');
 
 let selectedFile = null;
 
-dropZone.addEventListener('click', () => audioInput.click());
+function triggerFilePick() {
+    audioInput.click();
+}
+
+dropZone.addEventListener('click', triggerFilePick);
 dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
     dropZone.classList.add('border-purple-500', 'bg-purple-500/20');
@@ -111,7 +133,7 @@ dropZone.addEventListener('drop', (e) => {
 });
 
 audioInput.addEventListener('change', (e) => {
-    if (e.target.files[0]) {
+    if (e.target.files && e.target.files[0]) {
         handleFileSelect(e.target.files[0]);
     }
 });
@@ -126,25 +148,36 @@ function handleFileSelect(file) {
         <i class="fas fa-check-circle text-5xl text-green-500 mb-3"></i>
         <p class="text-gray-300">File selected: ${file.name}</p>
         <p class="text-gray-500 text-sm mt-2">${(file.size / 1024 / 1024).toFixed(2)} MB</p>
-        <p class="text-gray-600 text-xs mt-2">Click to change file</p>
+        <p class="text-gray-600 text-xs mt-2">Tap to change file</p>
     `;
     
     analyzeUploadBtn.disabled = false;
 }
 
-clearFileBtn.addEventListener('click', () => {
+clearFileBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     selectedFile = null;
     selectedFileInfo.classList.add('hidden');
     analyzeUploadBtn.disabled = true;
     audioInput.value = '';
     dropZone.innerHTML = `
         <i class="fas fa-cloud-upload-alt text-5xl text-purple-500 mb-3"></i>
-        <p class="text-gray-300">Drag & drop audio file here or click to browse</p>
+        <p class="text-gray-300">Drag & drop audio file here or tap to browse</p>
         <p class="text-gray-500 text-sm mt-2">Supports MP3, WAV, M4A, OGG, AAC</p>
     `;
 });
 
-analyzeUploadBtn.addEventListener('click', async () => {
+function testPresetAudio(presetName) {
+    // Create a dummy file object for preset testing
+    const dummyBlob = new Blob(["preset audio data"], { type: 'audio/mp3' });
+    const dummyFile = new File([dummyBlob], presetName, { type: 'audio/mp3' });
+    handleFileSelect(dummyFile);
+    analyzeAudioFile();
+}
+
+analyzeUploadBtn.addEventListener('click', analyzeAudioFile);
+
+async function analyzeAudioFile() {
     if (!selectedFile) return;
     
     const loadingOverlay = document.getElementById('loadingOverlay');
@@ -180,7 +213,7 @@ analyzeUploadBtn.addEventListener('click', async () => {
         loadingOverlay.classList.add('hidden');
         loadingOverlay.classList.remove('flex');
     }
-});
+}
 
 function displayResults(report) {
     const resultsSection = document.getElementById('resultsSection');
