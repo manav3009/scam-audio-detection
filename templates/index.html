@@ -14,7 +14,7 @@
                 CallShield AI
             </h1>
             <p class="text-xl text-gray-300 max-w-2xl mx-auto">
-                Advanced AI-Powered Fraud Call Detection System
+                Advanced AI-Powered Fraud Call Detection & Scam Prevention System
             </p>
         </div>
         
@@ -42,9 +42,9 @@
             <a href="/login" class="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105">
                 <i class="fas fa-lock mr-2"></i> Admin Login
             </a>
-            <a href="#features" class="px-8 py-3 bg-gray-700/50 hover:bg-gray-700/70 text-white rounded-lg font-semibold transition-all duration-300 backdrop-blur-sm">
-                <i class="fas fa-play-circle mr-2"></i> Watch Demo
-            </a>
+            <button id="watchDemoBtn" class="px-8 py-3 bg-gradient-to-r from-purple-600/80 to-pink-600/80 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg font-semibold transition-all duration-300 backdrop-blur-sm transform hover:scale-105">
+                <i class="fas fa-play-circle mr-2 text-pink-300"></i> Watch Demo
+            </button>
         </div>
         
         <!-- Stats -->
@@ -64,4 +64,138 @@
         </div>
     </div>
 </div>
+
+<!-- Watch Demo Modal -->
+<div id="demoModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+    <div class="bg-gray-900 border border-purple-500/40 rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-6 animate-slide-up relative">
+        <button id="closeDemoBtn" class="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl transition">
+            <i class="fas fa-times-circle"></i>
+        </button>
+        
+        <div class="flex items-center space-x-3 border-b border-gray-800 pb-4">
+            <div class="p-3 bg-purple-500/20 rounded-xl text-purple-400">
+                <i class="fas fa-circle-play text-2xl"></i>
+            </div>
+            <div>
+                <h2 class="text-2xl font-bold text-white">CallShield AI — Interactive Demo</h2>
+                <p class="text-xs text-gray-400">See how real-time AI scam audio detection works</p>
+            </div>
+        </div>
+        
+        <div class="bg-black/60 rounded-xl overflow-hidden border border-purple-500/20 p-4 space-y-4">
+            <div class="aspect-video bg-gradient-to-br from-gray-950 via-purple-950/40 to-black rounded-lg p-6 flex flex-col justify-between relative border border-gray-800">
+                <div class="flex items-center justify-between text-xs text-gray-400">
+                    <span class="px-2.5 py-1 bg-red-500/20 text-red-400 rounded-full font-bold border border-red-500/40 animate-pulse">
+                        ● LIVE SIMULATION DEMO
+                    </span>
+                    <span id="demoTimer" class="font-mono text-purple-400 font-bold">00:15</span>
+                </div>
+                
+                <div class="my-auto text-center space-y-3">
+                    <div id="demoStatusIcon" class="w-16 h-16 mx-auto bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400 text-3xl">
+                        <i class="fas fa-brain animate-pulse"></i>
+                    </div>
+                    <div id="demoTranscript" class="text-lg font-medium text-white italic max-w-lg mx-auto leading-relaxed">
+                        "Your bank account has been compromised. Please kindly share OTP to unblock now..."
+                    </div>
+                    <div id="demoBadge" class="inline-block px-4 py-1.5 bg-red-500/30 text-red-400 rounded-full text-sm font-bold border border-red-500 animate-bounce">
+                        🚨 95% CRITICAL RISK DETECTED
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-gray-800">
+                    <span>Engine Response: 0.18s</span>
+                    <span>Pattern: Bank OTP Fraud</span>
+                </div>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-3 text-left">
+                <div class="p-3 bg-gray-800/40 rounded-lg border border-gray-700/50">
+                    <div class="text-purple-400 font-semibold text-xs mb-1">1. Live Speech Capture</div>
+                    <div class="text-gray-300 text-xs">Captures voice audio stream & transcribes in real-time.</div>
+                </div>
+                <div class="p-3 bg-gray-800/40 rounded-lg border border-gray-700/50">
+                    <div class="text-pink-400 font-semibold text-xs mb-1">2. Multi-Pattern Engine</div>
+                    <div class="text-gray-300 text-xs">Evaluates 8 scam categories & red flags instantly.</div>
+                </div>
+                <div class="p-3 bg-gray-800/40 rounded-lg border border-gray-700/50">
+                    <div class="text-green-400 font-semibold text-xs mb-1">3. Instant Protection</div>
+                    <div class="text-gray-300 text-xs">Calculates risk score (0-100%) and provides safety advice.</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex flex-wrap gap-3 pt-2">
+            <a href="/login" class="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-semibold text-sm text-center transition">
+                <i class="fas fa-right-to-bracket mr-2"></i> Launch Application Dashboard
+            </a>
+            <button id="closeDemoBottomBtn" class="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition">
+                Close Preview
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+const watchDemoBtn = document.getElementById('watchDemoBtn');
+const demoModal = document.getElementById('demoModal');
+const closeDemoBtn = document.getElementById('closeDemoBtn');
+const closeDemoBottomBtn = document.getElementById('closeDemoBottomBtn');
+let demoInterval = null;
+let demoSeconds = 0;
+
+const phrases = [
+    { text: '"Your bank account has been compromised. Please kindly share OTP to unblock now..."', risk: '🚨 95% CRITICAL RISK DETECTED', type: 'Bank OTP Fraud', icon: 'fa-skull-crosswalk', color: 'red' },
+    { text: '"This is the IRS calling. You have unpaid taxes and an arrest warrant issued..."', risk: '🚨 92% CRITICAL RISK DETECTED', type: 'IRS Tax Scam', icon: 'fa-handcuffs', color: 'red' },
+    { text: '"Congratulations! You won grand lottery prize of $1,000,000. Pay $500 processing fee..."', risk: '⚠️ 88% HIGH RISK DETECTED', type: 'Lottery Scam', icon: 'fa-trophy', color: 'orange' },
+    { text: '"Hello, this is doctor's office confirming your appointment tomorrow at 2 PM..."', risk: '✅ 15% SAFE CALL', type: 'Medical Reminder', icon: 'fa-shield-check', color: 'green' }
+];
+
+function openModal() {
+    demoModal.classList.remove('hidden');
+    demoModal.classList.add('flex');
+    startDemoSimulation();
+}
+
+function closeModal() {
+    demoModal.classList.add('hidden');
+    demoModal.classList.remove('flex');
+    if (demoInterval) clearInterval(demoInterval);
+}
+
+function startDemoSimulation() {
+    if (demoInterval) clearInterval(demoInterval);
+    demoSeconds = 0;
+    let idx = 0;
+    
+    demoInterval = setInterval(() => {
+        demoSeconds++;
+        document.getElementById('demoTimer').textContent = `00:${demoSeconds < 10 ? '0' : ''}${demoSeconds}`;
+        
+        if (demoSeconds % 5 === 0) {
+            idx = (idx + 1) % phrases.length;
+            const current = phrases[idx];
+            
+            document.getElementById('demoTranscript').textContent = current.text;
+            const badge = document.getElementById('demoBadge');
+            badge.textContent = current.risk;
+            
+            if (current.color === 'red') {
+                badge.className = 'inline-block px-4 py-1.5 bg-red-500/30 text-red-400 rounded-full text-sm font-bold border border-red-500 animate-bounce';
+            } else if (current.color === 'orange') {
+                badge.className = 'inline-block px-4 py-1.5 bg-orange-500/30 text-orange-400 rounded-full text-sm font-bold border border-orange-500 animate-pulse';
+            } else {
+                badge.className = 'inline-block px-4 py-1.5 bg-green-500/30 text-green-400 rounded-full text-sm font-bold border border-green-500';
+            }
+        }
+    }, 1000);
+}
+
+watchDemoBtn.addEventListener('click', openModal);
+closeDemoBtn.addEventListener('click', closeModal);
+closeDemoBottomBtn.addEventListener('click', closeModal);
+demoModal.addEventListener('click', (e) => {
+    if (e.target === demoModal) closeModal();
+});
+</script>
 {% endblock %}
