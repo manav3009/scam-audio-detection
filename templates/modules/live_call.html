@@ -588,7 +588,7 @@ function escapeHtml(text) {
 }
 
 function escapeRegex(string) {
-    return string.replace(/[.*+?^${}()|[\]\]/g, '\\$&');
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 document.getElementById('startRecordBtn').addEventListener('click', () => {
