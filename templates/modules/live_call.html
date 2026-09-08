@@ -701,6 +701,20 @@ document.getElementById('startRecordBtn').addEventListener('click', () => {
     } else {
         addSystemMessage('⚠️ Microphone Speech Recognition API not available in this browser. Use preset buttons or custom text input above to test!');
     }
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const phone = urlParams.get('phone');
+    const autostart = urlParams.get('autostart');
+
+    if (phone) {
+        addSystemMessage(`📞 Active Call Connected: <strong>${phone}</strong> — CallShield AI Protection Enabled.`);
+    }
+
+    if (autostart === 'true') {
+        setTimeout(() => {
+            document.getElementById('startRecordBtn').click();
+        }, 500);
+    }
 });
 
 document.getElementById('stopRecordBtn').addEventListener('click', stopRecording);
