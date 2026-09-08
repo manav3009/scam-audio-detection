@@ -14,14 +14,14 @@
             </button>
         </div>
         <div class="px-4 py-2 bg-green-500/20 rounded-lg text-green-400 text-sm flex items-center">
-            <i class="fas fa-circle text-xs mr-2 animate-pulse"></i> Real-Time AI Call Shield Active
+            <i class="fas fa-circle text-xs mr-2 animate-pulse"></i> Dual-Speaker Call Shield Active
         </div>
     </div>
     
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-            <h1 class="text-3xl font-bold text-white">🎙️ Live Call Scam Detector</h1>
-            <p class="text-gray-400">Speak naturally or type caller speech — AI continuously analyzes & auto-records your live call</p>
+            <h1 class="text-3xl font-bold text-white">🎙️ Live Call Scam Detector (Dual-Speaker AI)</h1>
+            <p class="text-gray-400">Listens continuously to both Caller & Receiver — AI auto-detects scam patterns & records logs</p>
         </div>
         <div>
             <button onclick="manualSaveLiveCall()" class="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg font-semibold text-sm transition shadow-lg flex items-center">
@@ -35,7 +35,7 @@
             <i class="fas fa-check-circle text-xl text-green-400"></i>
             <div>
                 <p class="font-semibold text-sm">Live Call Recording Saved!</p>
-                <p class="text-xs text-green-300">Call transcript saved into Audio Analysis & Recorded Call History.</p>
+                <p class="text-xs text-green-300">Call transcript saved into Audio Analysis & Recorded Call History database.</p>
             </div>
         </div>
         <a href="/modules/recorded" class="px-3 py-1 bg-green-700 hover:bg-green-600 text-white rounded-lg text-xs font-bold transition">
@@ -75,7 +75,7 @@
                         <i class="fas fa-microphone text-5xl text-gray-400"></i>
                     </div>
                     <h3 class="text-xl font-semibold text-white">Live Call Monitor</h3>
-                    <p class="text-gray-400 text-sm mt-1">Click "Start Listening" for continuous call analysis & auto-recording</p>
+                    <p class="text-gray-400 text-sm mt-1">Dual-Speaker Mode — Auto-detects 2 persons speaking on live call</p>
                 </div>
                 
                 <div class="flex gap-3">
@@ -100,12 +100,12 @@
             <div class="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-purple-500/30">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-xl font-semibold text-white">
-                        <i class="fas fa-comment-dots mr-2 text-purple-500"></i>Live Transcript
+                        <i class="fas fa-comment-dots mr-2 text-purple-500"></i>Dual-Speaker Live Transcript
                     </h2>
                     <span id="wordCount" class="text-xs text-purple-400 font-bold">0 words</span>
                 </div>
                 
-                <div id="transcriptArea" class="bg-gray-900/50 rounded-lg p-4 min-h-[300px] max-h-[300px] overflow-y-auto">
+                <div id="transcriptArea" class="bg-gray-900/50 rounded-lg p-4 min-h-[300px] max-h-[300px] overflow-y-auto space-y-3">
                     <div class="text-gray-500 text-center py-8">
                         <i class="fas fa-microphone-slash text-4xl mb-2 block"></i>
                         Click "Start Listening" or type text above
@@ -174,7 +174,7 @@
             <div class="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-blue-500/30">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-lg font-semibold text-white">
-                        <i class="fas fa-chart-simple mr-2 text-blue-500"></i>Call Telemetry & Stats
+                        <i class="fas fa-chart-simple mr-2 text-blue-500"></i>Call Telemetry & Log Info
                     </h2>
                     <button onclick="manualSaveLiveCall()" class="px-3 py-1 bg-purple-600/40 hover:bg-purple-600/70 text-purple-200 rounded-lg text-xs font-bold transition">
                         <i class="fas fa-floppy-disk mr-1"></i>Save Log
@@ -201,6 +201,10 @@
                         <span class="text-gray-400">Engine Response Time:</span>
                         <span id="analysisTime" class="text-gray-400 text-xs font-mono">-</span>
                     </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Saved Log Location:</span>
+                        <span class="text-green-400 text-xs font-mono">Recorded History Database</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -218,6 +222,7 @@ let callStartTimestamp = 0;
 let fullConversationTranscript = "";
 let currentAnalysisData = null;
 let isCallSaved = false;
+let speakerTurn = 0;
 
 if (SpeechRecognition) {
     recognition = new SpeechRecognition();
@@ -228,6 +233,7 @@ if (SpeechRecognition) {
     recognition.onstart = () => {
         isRecording = true;
         isCallSaved = false;
+        speakerTurn = 0;
         if (callStartTimestamp === 0) callStartTimestamp = Date.now();
         document.getElementById('startRecordBtn').disabled = true;
         document.getElementById('stopRecordBtn').disabled = false;
@@ -377,6 +383,9 @@ function addToConversation(text, isFinal) {
     if (interimElement) interimElement.remove();
     
     if (isFinal) {
+        speakerTurn++;
+        const isCaller = (speakerTurn % 2 !== 0);
+        
         const messageDiv = document.createElement('div');
         messageDiv.className = 'mb-3 animate-slide-up';
         
@@ -388,14 +397,23 @@ function addToConversation(text, isFinal) {
             });
         }
         
+        const speakerBadge = isCaller ?
+            '<span class="px-2 py-0.5 bg-red-500/20 text-red-300 border border-red-500/30 rounded text-xs font-bold mr-2"><i class="fas fa-phone-volume mr-1"></i>Caller (Speaker 1)</span>' :
+            '<span class="px-2 py-0.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded text-xs font-bold mr-2"><i class="fas fa-user-shield mr-1"></i>You (Receiver)</span>';
+
+        const bubbleBg = isCaller ? 'bg-red-900/10 border border-red-500/20' : 'bg-blue-600/10 border border-blue-500/20';
+
         messageDiv.innerHTML = `
             <div class="flex items-start space-x-2">
-                <div class="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                    <i class="fas fa-user text-blue-400 text-xs"></i>
+                <div class="w-6 h-6 ${isCaller ? 'bg-red-500/20' : 'bg-blue-500/20'} rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <i class="fas ${isCaller ? 'fa-user-secret text-red-400' : 'fa-user text-blue-400'} text-xs"></i>
                 </div>
-                <div class="flex-1 bg-blue-600/10 rounded-lg p-2">
+                <div class="flex-1 ${bubbleBg} rounded-lg p-2.5">
+                    <div class="flex items-center justify-between mb-1">
+                        ${speakerBadge}
+                        <span class="text-gray-500 text-xs">${new Date().toLocaleTimeString()}</span>
+                    </div>
                     <div class="text-white text-sm leading-relaxed">${highlightedText}</div>
-                    <div class="text-gray-500 text-xs mt-1">${new Date().toLocaleTimeString()}</div>
                 </div>
             </div>
         `;
@@ -651,13 +669,14 @@ function escapeHtml(text) {
 }
 
 function escapeRegex(string) {
-    return string.replace(/([.*+?^${}()|[\]\/\\])/g, '\\$1', '\\$&');
+    return string.replace(/([.*+?^${}()|[\]\/\\])/g, '\\$1');
 }
 
 document.getElementById('startRecordBtn').addEventListener('click', () => {
     fullConversationTranscript = "";
     currentAnalysisData = null;
     isCallSaved = false;
+    speakerTurn = 0;
     callStartTimestamp = Date.now();
     document.getElementById('transcriptArea').innerHTML = '';
     document.getElementById('keywordsContainer').innerHTML = '<div class="text-gray-500 text-center py-4"><i class="fas fa-search text-2xl mb-2 block"></i>No suspicious keywords detected yet</div>';
