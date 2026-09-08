@@ -42,6 +42,36 @@ def analyze_live():
         'analysis_time': result['analysis_time']
     })
 
+@analysis_bp.route('/api/save_live_call', methods=['POST'])
+def save_live_call():
+    data = request.json or {}
+    transcript = data.get('transcript', '').strip()
+    if not transcript:
+        return jsonify({'success': False, 'message': 'Live call transcript is empty'}), 400
+    
+    result = fraud_detector.analyze_text(transcript)
+    timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
+    call_filename = f"Live_Call_Recording_{timestamp}.mp3"
+    
+    scam_label = f"🔴 Live Call ({result['risk_level']} Risk - {result['fraud_score']}%)" if result['fraud_score'] > 30 else f"🟢 Live Call (Safe - {result['fraud_score']}%)"
+    
+    entry = {
+        "name": call_filename,
+        "transcript": transcript,
+        "scam_type": scam_label,
+        "date": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    # Prepend to TEST_AUDIO_FILES so newest live recorded call appears first!
+    TEST_AUDIO_FILES.insert(0, entry)
+    
+    return jsonify({
+        'success': True,
+        'message': 'Live call recording and transcript saved successfully!',
+        'filename': call_filename,
+        'report': result
+    })
+
 @analysis_bp.route('/api/get_audio_list', methods=['GET'])
 def get_audio_list():
     audio_list = [{"name": audio["name"], "scam_type": audio["scam_type"]} for audio in TEST_AUDIO_FILES]

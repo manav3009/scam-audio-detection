@@ -13,13 +13,35 @@
                 <i class="fas fa-arrow-left mr-2"></i>Previous Page
             </button>
         </div>
-        <div class="px-4 py-2 bg-green-500/20 rounded-lg text-green-400 text-sm">
+        <div class="px-4 py-2 bg-green-500/20 rounded-lg text-green-400 text-sm flex items-center">
             <i class="fas fa-circle text-xs mr-2 animate-pulse"></i> Real-Time AI Call Shield Active
         </div>
     </div>
     
-    <h1 class="text-3xl font-bold text-white">🎙️ Live Call Scam Detector</h1>
-    <p class="text-gray-400">Speak naturally or type caller speech — AI continuously analyzes your call in real-time</p>
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white">🎙️ Live Call Scam Detector</h1>
+            <p class="text-gray-400">Speak naturally or type caller speech — AI continuously analyzes & auto-records your live call</p>
+        </div>
+        <div>
+            <button onclick="manualSaveLiveCall()" class="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg font-semibold text-sm transition shadow-lg flex items-center">
+                <i class="fas fa-floppy-disk mr-2"></i>Save Live Call Recording
+            </button>
+        </div>
+    </div>
+
+    <div id="saveToast" class="hidden bg-green-900/60 border border-green-500 text-green-200 px-4 py-3 rounded-xl flex items-center justify-between animate-slide-up">
+        <div class="flex items-center space-x-3">
+            <i class="fas fa-check-circle text-xl text-green-400"></i>
+            <div>
+                <p class="font-semibold text-sm">Live Call Recording Saved!</p>
+                <p class="text-xs text-green-300">Call transcript saved into Audio Analysis & Recorded Call History.</p>
+            </div>
+        </div>
+        <a href="/modules/recorded" class="px-3 py-1 bg-green-700 hover:bg-green-600 text-white rounded-lg text-xs font-bold transition">
+            View History <i class="fas fa-arrow-right ml-1"></i>
+        </a>
+    </div>
     
     <div class="bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-xl p-4 border border-purple-500/30 space-y-3">
         <div>
@@ -53,7 +75,7 @@
                         <i class="fas fa-microphone text-5xl text-gray-400"></i>
                     </div>
                     <h3 class="text-xl font-semibold text-white">Live Call Monitor</h3>
-                    <p class="text-gray-400 text-sm mt-1">Click "Start Listening" for continuous analysis</p>
+                    <p class="text-gray-400 text-sm mt-1">Click "Start Listening" for continuous call analysis & auto-recording</p>
                 </div>
                 
                 <div class="flex gap-3">
@@ -61,16 +83,16 @@
                         <i class="fas fa-play mr-2"></i>Start Listening
                     </button>
                     <button id="stopRecordBtn" disabled class="flex-1 px-6 py-3 bg-red-600/50 text-red-400 rounded-lg font-semibold transition-all duration-300 cursor-not-allowed">
-                        <i class="fas fa-stop mr-2"></i>Stop
+                        <i class="fas fa-stop mr-2"></i>Stop & Save Call
                     </button>
                 </div>
                 
                 <div class="mt-3 text-center">
                     <div id="recordingStatus" class="hidden text-red-400 text-sm font-semibold">
-                        <i class="fas fa-circle animate-pulse mr-1"></i> Live Call Monitoring in Progress...
+                        <i class="fas fa-circle animate-pulse mr-1"></i> Live Call Monitoring & Auto-Recording Active...
                     </div>
                     <div id="silenceWarning" class="hidden text-yellow-400 text-sm mt-2">
-                        <i class="fas fa-clock mr-1"></i> Continuous Mode — 30 seconds of silence auto-stop
+                        <i class="fas fa-clock mr-1"></i> Continuous Mode — 30 seconds of silence auto-saves & stops
                     </div>
                 </div>
             </div>
@@ -150,9 +172,14 @@
             </div>
             
             <div class="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-blue-500/30">
-                <h2 class="text-lg font-semibold text-white mb-3">
-                    <i class="fas fa-chart-simple mr-2 text-blue-500"></i>Call Telemetry & Stats
-                </h2>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-semibold text-white">
+                        <i class="fas fa-chart-simple mr-2 text-blue-500"></i>Call Telemetry & Stats
+                    </h2>
+                    <button onclick="manualSaveLiveCall()" class="px-3 py-1 bg-purple-600/40 hover:bg-purple-600/70 text-purple-200 rounded-lg text-xs font-bold transition">
+                        <i class="fas fa-floppy-disk mr-1"></i>Save Log
+                    </button>
+                </div>
                 <div class="space-y-2 text-sm">
                     <div class="flex justify-between">
                         <span class="text-gray-400">Total Spoken Words:</span>
@@ -190,6 +217,7 @@ let silenceSeconds = 0;
 let callStartTimestamp = 0;
 let fullConversationTranscript = "";
 let currentAnalysisData = null;
+let isCallSaved = false;
 
 if (SpeechRecognition) {
     recognition = new SpeechRecognition();
@@ -199,11 +227,13 @@ if (SpeechRecognition) {
     
     recognition.onstart = () => {
         isRecording = true;
+        isCallSaved = false;
         if (callStartTimestamp === 0) callStartTimestamp = Date.now();
         document.getElementById('startRecordBtn').disabled = true;
         document.getElementById('stopRecordBtn').disabled = false;
         document.getElementById('recordingStatus').classList.remove('hidden');
         document.getElementById('silenceWarning').classList.remove('hidden');
+        document.getElementById('saveToast').classList.add('hidden');
         
         const micIcon = document.getElementById('micIcon');
         micIcon.classList.add('recording-active');
@@ -299,6 +329,39 @@ function stopRecording() {
     const micIcon = document.getElementById('micIcon');
     micIcon.classList.remove('recording-active');
     micIcon.innerHTML = '<i class="fas fa-microphone text-5xl text-gray-400"></i>';
+    
+    // Auto-save live call recording if transcript exists!
+    if (fullConversationTranscript.trim().length > 0 && !isCallSaved) {
+        saveLiveCallRecording(fullConversationTranscript);
+    }
+}
+
+async function saveLiveCallRecording(transcript) {
+    if (!transcript || transcript.trim().length === 0) return;
+    
+    try {
+        const response = await fetch('/api/save_live_call', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transcript: transcript })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            isCallSaved = true;
+            document.getElementById('saveToast').classList.remove('hidden');
+        }
+    } catch (e) {
+        console.error('Error saving live call:', e);
+    }
+}
+
+function manualSaveLiveCall() {
+    if (!fullConversationTranscript || fullConversationTranscript.trim().length === 0) {
+        alert('Please start speaking or enter caller text before saving live call recording!');
+        return;
+    }
+    saveLiveCallRecording(fullConversationTranscript);
 }
 
 function updateAccurateWordCount() {
@@ -588,32 +651,36 @@ function escapeHtml(text) {
 }
 
 function escapeRegex(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return string.replace(/([.*+?^${}()|[\]\/\\])/g, '\\$1', '\\$&');
 }
 
 document.getElementById('startRecordBtn').addEventListener('click', () => {
+    fullConversationTranscript = "";
+    currentAnalysisData = null;
+    isCallSaved = false;
+    callStartTimestamp = Date.now();
+    document.getElementById('transcriptArea').innerHTML = '';
+    document.getElementById('keywordsContainer').innerHTML = '<div class="text-gray-500 text-center py-4"><i class="fas fa-search text-2xl mb-2 block"></i>No suspicious keywords detected yet</div>';
+    document.getElementById('riskPercentage').textContent = '0%';
+    document.getElementById('riskCircle').style.strokeDashoffset = '439.82';
+    document.getElementById('totalWords').textContent = '0';
+    document.getElementById('suspiciousCount').textContent = '0';
+    document.getElementById('wordCount').textContent = '0 words';
+    document.getElementById('callDurationDisplay').textContent = '0.0s';
+    document.getElementById('analysisTime').textContent = '-';
+    document.getElementById('saveToast').classList.add('hidden');
+    
+    document.getElementById('riskLevelCard').className = 'rounded-lg p-4 text-center mb-4 transition-all duration-300 bg-gray-900/50';
+    document.getElementById('riskLevelText').innerHTML = '<i class="fas fa-shield-alt mr-2"></i>No analysis yet';
+    document.getElementById('riskLevelText').className = 'text-lg font-semibold text-gray-400';
+    document.getElementById('summaryRisk').innerHTML = '<span class="text-gray-400 font-semibold">-</span>';
+    document.getElementById('recommendationCard').className = 'rounded-lg p-4 bg-gray-900/50';
+    document.getElementById('recommendationText').innerHTML = 'Start speaking or typing to analyze the call';
+
     if (recognition) {
-        fullConversationTranscript = "";
-        currentAnalysisData = null;
-        callStartTimestamp = Date.now();
-        document.getElementById('transcriptArea').innerHTML = '';
-        document.getElementById('keywordsContainer').innerHTML = '<div class="text-gray-500 text-center py-4"><i class="fas fa-search text-2xl mb-2 block"></i>No suspicious keywords detected yet</div>';
-        document.getElementById('riskPercentage').textContent = '0%';
-        document.getElementById('riskCircle').style.strokeDashoffset = '439.82';
-        document.getElementById('totalWords').textContent = '0';
-        document.getElementById('suspiciousCount').textContent = '0';
-        document.getElementById('wordCount').textContent = '0 words';
-        document.getElementById('callDurationDisplay').textContent = '0.0s';
-        document.getElementById('analysisTime').textContent = '-';
-        
-        document.getElementById('riskLevelCard').className = 'rounded-lg p-4 text-center mb-4 transition-all duration-300 bg-gray-900/50';
-        document.getElementById('riskLevelText').innerHTML = '<i class="fas fa-shield-alt mr-2"></i>No analysis yet';
-        document.getElementById('riskLevelText').className = 'text-lg font-semibold text-gray-400';
-        document.getElementById('summaryRisk').innerHTML = '<span class="text-gray-400 font-semibold">-</span>';
-        document.getElementById('recommendationCard').className = 'rounded-lg p-4 bg-gray-900/50';
-        document.getElementById('recommendationText').innerHTML = 'Start speaking or typing to analyze the call';
-        
         try { recognition.start(); } catch(e) {}
+    } else {
+        addSystemMessage('⚠️ Microphone Speech Recognition API not available in this browser. Use preset buttons or custom text input above to test!');
     }
 });
 
