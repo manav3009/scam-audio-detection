@@ -31,7 +31,7 @@
                             '50%': { 'box-shadow': '0 0 20px rgba(59,130,246,0.8)' },
                         },
                         slideUp: {
-                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '0%': { transform: 'translateY(15px)', opacity: '0' },
                             '100%': { transform: 'translateY(0)', opacity: '1' },
                         }
                     }
@@ -42,7 +42,7 @@
     
     <style>
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #2563eb; }
         
@@ -54,7 +54,6 @@
             animation: recordingPulse 1.5s ease-in-out infinite;
         }
         
-        /* Mobile touch responsiveness fixes */
         button, a, input, select {
             touch-action: manipulation;
         }
@@ -62,37 +61,35 @@
     
     {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-gradient-to-br from-gray-950 via-gray-900 to-slate-950 text-gray-100 min-h-screen flex flex-col font-sans">
+<body class="bg-gradient-to-br from-gray-950 via-gray-900 to-slate-950 text-gray-100 min-h-screen flex flex-col font-sans selection:bg-blue-500 selection:text-white">
     <!-- Navigation Bar -->
     <nav class="bg-gray-900/95 backdrop-blur-md border-b border-blue-500/30 sticky top-0 z-50 shadow-xl">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
-                <a href="/" class="flex items-center space-x-3">
-                    <i class="fas fa-shield-alt text-2xl sm:text-3xl text-blue-500 animate-pulse-slow"></i>
+                <a href="/" class="flex items-center space-x-3 group">
+                    <i class="fas fa-shield-alt text-2xl sm:text-3xl text-blue-500 animate-pulse-slow group-hover:scale-110 transition-transform"></i>
                     <span class="text-lg sm:text-xl font-extrabold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent tracking-wide">
                         CallShield AI
                     </span>
                 </a>
                 
                 <div class="flex items-center space-x-2 sm:space-x-4">
-                    <!-- Download APK Button -->
-                    <a href="/download-apk" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold text-xs sm:text-sm transition-all shadow-lg flex items-center border border-green-400/30 transform hover:scale-105">
-                        <i class="fas fa-download mr-1.5 text-xs"></i><span class="hidden xs:inline">Download </span>APK
-                    </a>
-                    
                     {% if session.logged_in %}
-                    <button onclick="goBack()" class="px-3 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-300 rounded-lg text-xs sm:text-sm transition border border-gray-700">
-                        <i class="fas fa-arrow-left mr-1"></i><span class="hidden sm:inline">Back</span>
+                    <button onclick="goBack()" class="px-3 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-300 rounded-lg text-xs sm:text-sm transition border border-gray-700 flex items-center">
+                        <i class="fas fa-arrow-left mr-1.5"></i>Back
                     </button>
-                    <span class="hidden md:inline-block text-gray-300 text-xs font-semibold px-2 py-1 bg-gray-800 rounded-lg border border-gray-700">
-                        <i class="fas fa-user-shield text-blue-400 mr-1"></i>{{ session.username }}
+                    <span class="inline-block text-gray-300 text-xs font-semibold px-2.5 py-1 bg-gray-800 rounded-lg border border-gray-700">
+                        <i class="fas fa-user-shield text-blue-400 mr-1.5"></i>{{ session.username }}
                     </span>
                     <button onclick="logout()" class="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs sm:text-sm transition border border-red-500/30">
                         <i class="fas fa-sign-out-alt mr-1"></i>Logout
                     </button>
                     {% else %}
-                    <a href="/login" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs sm:text-sm transition shadow-md">
-                        Login
+                    <a href="/student-access" class="px-3.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-xs sm:text-sm transition shadow-md">
+                        <i class="fas fa-graduation-cap mr-1"></i>Student Access
+                    </a>
+                    <a href="/login" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs sm:text-sm transition shadow-md">
+                        Admin Login
                     </a>
                     {% endif %}
                 </div>
@@ -106,16 +103,10 @@
     </main>
     
     <!-- Footer -->
-    <footer class="bg-gray-950/80 border-t border-gray-800 py-6 mt-12">
-        <div class="max-w-7xl mx-auto px-4 text-center space-y-2">
-            <p class="text-xs sm:text-sm text-gray-400">🛡️ <strong>CallShield AI</strong> — Advanced Real-Time Voice Scam & Fraud Detection</p>
-            <div class="flex items-center justify-center space-x-4 text-xs text-gray-500">
-                <a href="/download-apk" class="text-green-400 hover:underline"><i class="fas fa-android mr-1"></i>Download Android App (.APK)</a>
-                <span>•</span>
-                <span>Mobile & Desktop Optimized</span>
-                <span>•</span>
-                <span>Powered by AI Neural Shield</span>
-            </div>
+    <footer class="bg-gray-950/90 border-t border-gray-800 py-5 mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center space-y-1.5">
+            <p class="text-xs sm:text-sm text-gray-400">🛡️ <strong>CallShield AI</strong> — Real-Time Voice Scam Detection & AI Call Shield</p>
+            <p class="text-xs text-gray-500">Optimized for Mobile App, Tablet & Desktop PC | Powered by AI Neural Detection Engine</p>
         </div>
     </footer>
     

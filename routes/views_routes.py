@@ -1,5 +1,4 @@
-from flask import Blueprint, render_template, session, redirect, url_for, send_from_directory
-import os
+from flask import Blueprint, render_template, session, redirect, url_for
 
 views_bp = Blueprint('views', __name__)
 
@@ -23,7 +22,6 @@ def login_page():
 @views_bp.route('/dashboard')
 def dashboard():
     if not session.get('logged_in'):
-        # Default auto-grant Student access if visiting dashboard directly on mobile
         session['logged_in'] = True
         session['username'] = 'Student / Public Tester'
         session['role'] = 'Student'
@@ -60,8 +58,3 @@ def chatbot():
         session['username'] = 'Student / Public Tester'
         session['role'] = 'Student'
     return render_template('modules/chatbot.html')
-
-@views_bp.route('/download-apk')
-def download_apk():
-    static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static')
-    return send_from_directory(static_dir, 'CallShield_AI_v1.0.apk', as_attachment=True)
