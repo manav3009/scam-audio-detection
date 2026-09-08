@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CallShield AI - {% block title %}Fraud Call Detection{% endblock %}</title>
     
     <!-- Tailwind CSS CDN -->
@@ -41,67 +41,84 @@
     </script>
     
     <style>
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #111827; }
         ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #2563eb; }
         
-        /* Voice recording animation */
         @keyframes recordingPulse {
             0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.1); opacity: 0.7; }
+            50% { transform: scale(1.08); opacity: 0.8; }
         }
         .recording-active {
             animation: recordingPulse 1.5s ease-in-out infinite;
+        }
+        
+        /* Mobile touch responsiveness fixes */
+        button, a, input, select {
+            touch-action: manipulation;
         }
     </style>
     
     {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 min-h-screen">
+<body class="bg-gradient-to-br from-gray-950 via-gray-900 to-slate-950 text-gray-100 min-h-screen flex flex-col font-sans">
     <!-- Navigation Bar -->
-    <nav class="bg-gray-900/90 backdrop-blur-md border-b border-blue-500/30 sticky top-0 z-50">
+    <nav class="bg-gray-900/95 backdrop-blur-md border-b border-blue-500/30 sticky top-0 z-50 shadow-xl">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
-                <div class="flex items-center space-x-3">
-                    <i class="fas fa-shield-alt text-3xl text-blue-500 animate-pulse-slow"></i>
-                    <span class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                <a href="/" class="flex items-center space-x-3">
+                    <i class="fas fa-shield-alt text-2xl sm:text-3xl text-blue-500 animate-pulse-slow"></i>
+                    <span class="text-lg sm:text-xl font-extrabold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent tracking-wide">
                         CallShield AI
                     </span>
-                </div>
+                </a>
                 
-                {% if session.logged_in %}
-                <div class="flex items-center space-x-4">
-                    <!-- Back Navigation Button -->
-                    <button onclick="goBack()" class="px-3 py-2 bg-gray-700/50 hover:bg-gray-700/70 text-gray-300 rounded-lg transition-all duration-300 text-sm">
-                        <i class="fas fa-arrow-left mr-1"></i> Back
-                    </button>
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <!-- Download APK Button -->
+                    <a href="/download-apk" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold text-xs sm:text-sm transition-all shadow-lg flex items-center border border-green-400/30 transform hover:scale-105">
+                        <i class="fas fa-download mr-1.5 text-xs"></i><span class="hidden xs:inline">Download </span>APK
+                    </a>
                     
-                    <span class="text-gray-300 text-sm">
-                        <i class="fas fa-user-shield mr-1"></i> {{ session.username }}
-                    </span>
-                    <button onclick="logout()" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-all duration-300 text-sm">
-                        <i class="fas fa-sign-out-alt mr-1"></i> Logout
+                    {% if session.logged_in %}
+                    <button onclick="goBack()" class="px-3 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-300 rounded-lg text-xs sm:text-sm transition border border-gray-700">
+                        <i class="fas fa-arrow-left mr-1"></i><span class="hidden sm:inline">Back</span>
                     </button>
+                    <span class="hidden md:inline-block text-gray-300 text-xs font-semibold px-2 py-1 bg-gray-800 rounded-lg border border-gray-700">
+                        <i class="fas fa-user-shield text-blue-400 mr-1"></i>{{ session.username }}
+                    </span>
+                    <button onclick="logout()" class="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs sm:text-sm transition border border-red-500/30">
+                        <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                    </button>
+                    {% else %}
+                    <a href="/login" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs sm:text-sm transition shadow-md">
+                        Login
+                    </a>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
         </div>
     </nav>
     
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
         {% block content %}{% endblock %}
     </main>
     
     <!-- Footer -->
-    <footer class="bg-gray-900/50 border-t border-blue-500/20 mt-16 py-6">
-        <div class="max-w-7xl mx-auto px-4 text-center text-gray-400 text-sm">
-            <p>🛡️ CallShield AI - Protecting You from Voice Scams | Powered by Advanced AI Detection</p>
+    <footer class="bg-gray-950/80 border-t border-gray-800 py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center space-y-2">
+            <p class="text-xs sm:text-sm text-gray-400">🛡️ <strong>CallShield AI</strong> — Advanced Real-Time Voice Scam & Fraud Detection</p>
+            <div class="flex items-center justify-center space-x-4 text-xs text-gray-500">
+                <a href="/download-apk" class="text-green-400 hover:underline"><i class="fas fa-android mr-1"></i>Download Android App (.APK)</a>
+                <span>•</span>
+                <span>Mobile & Desktop Optimized</span>
+                <span>•</span>
+                <span>Powered by AI Neural Shield</span>
+            </div>
         </div>
     </footer>
     
-    <!-- Global JavaScript -->
     <script>
         async function logout() {
             const response = await fetch('/api/logout', {

@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, session, redirect, url_for
+from flask import Blueprint, render_template, session, redirect, url_for, send_from_directory
+import os
 
 views_bp = Blueprint('views', __name__)
 
@@ -41,3 +42,8 @@ def chatbot():
     if not session.get('logged_in'):
         return redirect(url_for('views.login_page'))
     return render_template('modules/chatbot.html')
+
+@views_bp.route('/download-apk')
+def download_apk():
+    static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static')
+    return send_from_directory(static_dir, 'CallShield_AI_v1.0.apk', as_attachment=True)
