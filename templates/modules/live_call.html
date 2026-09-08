@@ -19,17 +19,29 @@
     </div>
     
     <h1 class="text-3xl font-bold text-white">🎙️ Live Call Scam Detector</h1>
-    <p class="text-gray-400">Speak naturally — AI continuously analyzes your call in real-time</p>
+    <p class="text-gray-400">Speak naturally or type caller speech — AI continuously analyzes your call in real-time</p>
     
-    <div class="bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-xl p-4 border border-purple-500/30">
-        <p class="text-sm text-gray-300 mb-2"><i class="fas fa-microphone-alt mr-2 text-purple-400"></i>Try these sample test phrases:</p>
-        <div class="flex flex-wrap gap-2">
-            <button onclick="testPhrase('Please share your bank account details')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">🏦 Bank Account</button>
-            <button onclick="testPhrase('We need your credit card number for verification')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">💳 Credit Card</button>
-            <button onclick="testPhrase('Your social security number has been compromised')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">🆔 SSN</button>
-            <button onclick="testPhrase('Send gift cards immediately to avoid arrest')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">🎁 Gift Cards</button>
-            <button onclick="testPhrase('This is the IRS calling about unpaid tax fine')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">💰 IRS Scam</button>
-            <button onclick="testPhrase('I am John from Bangkok. Your bank has blocked your account. Please kindly share OTP to unblock now.')" class="px-3 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-300 rounded-lg text-xs transition">🚨 Bank OTP Scam</button>
+    <div class="bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-xl p-4 border border-purple-500/30 space-y-3">
+        <div>
+            <p class="text-sm text-gray-300 mb-2"><i class="fas fa-microphone-alt mr-2 text-purple-400"></i>Try these sample test phrases:</p>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="testPhrase('Please share your bank account details')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">🏦 Bank Account</button>
+                <button onclick="testPhrase('We need your credit card number for verification')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">💳 Credit Card</button>
+                <button onclick="testPhrase('Your social security number has been compromised')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">🆔 SSN</button>
+                <button onclick="testPhrase('Send gift cards immediately to avoid arrest')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">🎁 Gift Cards</button>
+                <button onclick="testPhrase('This is the IRS calling about unpaid tax fine')" class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-xs transition">💰 IRS Scam</button>
+                <button onclick="testPhrase('I am John from Bangkok. Your bank has blocked your account. Please kindly share OTP to unblock now.')" class="px-3 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-300 rounded-lg text-xs transition">🚨 Bank OTP Scam</button>
+            </div>
+        </div>
+        
+        <div class="pt-2 border-t border-purple-500/20">
+            <p class="text-xs text-gray-400 mb-2"><i class="fas fa-keyboard mr-2 text-blue-400"></i>Or type custom caller speech directly:</p>
+            <div class="flex gap-2">
+                <input type="text" id="manualTextInput" placeholder="Type what caller is saying (e.g. Send me your OTP right now)..." class="flex-1 px-3 py-2 bg-gray-900/90 border border-purple-500/40 rounded-lg text-white text-xs focus:outline-none focus:border-purple-500">
+                <button onclick="submitManualText()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition">
+                    <i class="fas fa-paper-plane mr-1"></i>Analyze
+                </button>
+            </div>
         </div>
     </div>
     
@@ -74,7 +86,7 @@
                 <div id="transcriptArea" class="bg-gray-900/50 rounded-lg p-4 min-h-[300px] max-h-[300px] overflow-y-auto">
                     <div class="text-gray-500 text-center py-8">
                         <i class="fas fa-microphone-slash text-4xl mb-2 block"></i>
-                        Click "Start Listening" and speak naturally
+                        Click "Start Listening" or type text above
                     </div>
                 </div>
                 
@@ -121,7 +133,7 @@
                 
                 <div id="recommendationCard" class="rounded-lg p-4 bg-gray-900/50">
                     <div class="text-gray-400 text-sm mb-1">🛡️ System Recommendation</div>
-                    <div id="recommendationText" class="text-gray-300 text-sm">Start speaking to analyze the call</div>
+                    <div id="recommendationText" class="text-gray-300 text-sm">Start speaking or typing to analyze the call</div>
                 </div>
             </div>
             
@@ -187,7 +199,7 @@ if (SpeechRecognition) {
     
     recognition.onstart = () => {
         isRecording = true;
-        callStartTimestamp = Date.now();
+        if (callStartTimestamp === 0) callStartTimestamp = Date.now();
         document.getElementById('startRecordBtn').disabled = true;
         document.getElementById('stopRecordBtn').disabled = false;
         document.getElementById('recordingStatus').classList.remove('hidden');
@@ -236,13 +248,13 @@ if (SpeechRecognition) {
         }
     };
 } else {
-    document.getElementById('transcriptArea').innerHTML = '<div class="text-red-400 text-center py-8">❌ Speech recognition not supported in this browser. Please use Chrome.</div>';
+    document.getElementById('transcriptArea').innerHTML = '<div class="text-yellow-400 text-center py-8">⚠️ Speech recognition microphone API is restricted or not supported in this browser environment.<br><span class="text-xs text-gray-400">You can still test fully using the custom text input box or quick preset buttons above!</span></div>';
 }
 
 function startCallTimer() {
     if (callDurationInterval) clearInterval(callDurationInterval);
     callDurationInterval = setInterval(() => {
-        if (isRecording && callStartTimestamp > 0) {
+        if (callStartTimestamp > 0) {
             const elapsed = ((Date.now() - callStartTimestamp) / 1000).toFixed(1);
             document.getElementById('callDurationDisplay').textContent = `${elapsed}s`;
         }
@@ -272,7 +284,6 @@ function resetSilenceTimer() {
 
 function stopRecording() {
     if (silenceTimerInterval) clearInterval(silenceTimerInterval);
-    if (callDurationInterval) clearInterval(callDurationInterval);
     
     if (recognition && isRecording) {
         isRecording = false;
@@ -543,18 +554,31 @@ function updateKeywordsContainer(keywords, patterns, redFlags) {
 }
 
 function testPhrase(phrase) {
-    if (!isRecording) {
-        addSystemMessage(`🧪 Test phrase: "${phrase}"`);
-        fullConversationTranscript += phrase + " ";
-        updateAccurateWordCount();
-        addToConversation(phrase, true);
-        analyzeWithBackend(fullConversationTranscript);
-    } else {
-        fullConversationTranscript += phrase + " ";
-        updateAccurateWordCount();
-        addToConversation(phrase, true);
-        analyzeWithBackend(fullConversationTranscript);
+    if (callStartTimestamp === 0) {
+        callStartTimestamp = Date.now();
+        startCallTimer();
     }
+    addSystemMessage(`🧪 Test phrase: "${phrase}"`);
+    fullConversationTranscript += phrase + " ";
+    updateAccurateWordCount();
+    addToConversation(phrase, true);
+    analyzeWithBackend(fullConversationTranscript);
+}
+
+function submitManualText() {
+    const input = document.getElementById('manualTextInput');
+    const text = input.value.trim();
+    if (!text) return;
+    if (callStartTimestamp === 0) {
+        callStartTimestamp = Date.now();
+        startCallTimer();
+    }
+    addSystemMessage(`⌨️ Typed speech: "${text}"`);
+    fullConversationTranscript += text + " ";
+    updateAccurateWordCount();
+    addToConversation(text, true);
+    analyzeWithBackend(fullConversationTranscript);
+    input.value = '';
 }
 
 function escapeHtml(text) {
@@ -571,6 +595,7 @@ document.getElementById('startRecordBtn').addEventListener('click', () => {
     if (recognition) {
         fullConversationTranscript = "";
         currentAnalysisData = null;
+        callStartTimestamp = Date.now();
         document.getElementById('transcriptArea').innerHTML = '';
         document.getElementById('keywordsContainer').innerHTML = '<div class="text-gray-500 text-center py-4"><i class="fas fa-search text-2xl mb-2 block"></i>No suspicious keywords detected yet</div>';
         document.getElementById('riskPercentage').textContent = '0%';
@@ -586,12 +611,17 @@ document.getElementById('startRecordBtn').addEventListener('click', () => {
         document.getElementById('riskLevelText').className = 'text-lg font-semibold text-gray-400';
         document.getElementById('summaryRisk').innerHTML = '<span class="text-gray-400 font-semibold">-</span>';
         document.getElementById('recommendationCard').className = 'rounded-lg p-4 bg-gray-900/50';
-        document.getElementById('recommendationText').innerHTML = 'Start speaking to analyze the call';
+        document.getElementById('recommendationText').innerHTML = 'Start speaking or typing to analyze the call';
         
         try { recognition.start(); } catch(e) {}
     }
 });
 
 document.getElementById('stopRecordBtn').addEventListener('click', stopRecording);
+document.getElementById('manualTextInput')?.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        submitManualText();
+    }
+});
 </script>
 {% endblock %}
