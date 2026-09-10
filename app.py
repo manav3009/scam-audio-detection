@@ -15,6 +15,9 @@ app.url_map.strict_slashes = False
 def clear_obsolete_sessions():
     session.clear()
 
+from core.database import init_db
+init_db()
+
 from routes.views_routes import views_bp
 from routes.auth_routes import auth_bp
 from routes.analysis_routes import analysis_bp

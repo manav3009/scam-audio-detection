@@ -3,6 +3,8 @@ from flask import Blueprint, request, jsonify
 from core.detector import FraudDetector
 from core.test_data import TEST_AUDIO_FILES
 
+from core.database import save_call_report, get_call_reports, get_contacts, save_contact
+
 analysis_bp = Blueprint('analysis', __name__)
 fraud_detector = FraudDetector()
 
@@ -46,6 +48,7 @@ def analyze_live():
 def save_live_call():
     data = request.json or {}
     transcript = data.get('transcript', '').strip()
+    phone_number = data.get('phone_number', '')
     if not transcript:
         return jsonify({'success': False, 'message': 'Live call transcript is empty'}), 400
     
@@ -62,20 +65,57 @@ def save_live_call():
         "date": time.strftime("%Y-%m-%d %H:%M:%S")
     }
     
-    # Prepend to TEST_AUDIO_FILES so newest live recorded call appears first!
+    # Save into MySQL Database & memory list
+    save_call_report(call_filename, transcript, scam_label, result['fraud_score'], result['risk_level'], phone_number, 'live_call')
     TEST_AUDIO_FILES.insert(0, entry)
     
     return jsonify({
         'success': True,
-        'message': 'Live call recording and transcript saved successfully!',
+        'message': 'Live call recording and transcript saved to MySQL database successfully!',
         'filename': call_filename,
         'report': result
     })
 
 @analysis_bp.route('/api/get_audio_list', methods=['GET'])
 def get_audio_list():
-    audio_list = [{"name": audio["name"], "scam_type": audio["scam_type"]} for audio in TEST_AUDIO_FILES]
+    db_reports = get_call_reports()
+    db_names = {r['name'] for r in db_reports}
+    
+    audio_list = [{"name": r['name'], "scam_type": r['scam_type']} for r in db_reports]
+    for audio in TEST_AUDIO_FILES:
+        if audio["name"] not in db_names:
+            audio_list.append({"name": audio["name"], "scam_type": audio["scam_type"]})
+            
     return jsonify({'success': True, 'audio_files': audio_list})
+
+@analysis_bp.route('/api/get_recents', methods=['GET'])
+def get_recents():
+    db_reports = get_call_reports()
+    recents = []
+    for r in db_reports:
+        recents.append({
+            "name": r.get('phone_number') or r['name'],
+            "number": r.get('phone_number') or "Live Call Recording",
+            "time": r['date'],
+            "risk": f"{r['scam_type']}"
+        })
+    return jsonify({'success': True, 'recents': recents})
+
+@analysis_bp.route('/api/get_contacts', methods=['GET'])
+def fetch_contacts():
+    contacts = get_contacts()
+    return jsonify({'success': True, 'contacts': contacts})
+
+@analysis_bp.route('/api/add_contact', methods=['POST'])
+def add_contact_route():
+    data = request.json or {}
+    name = data.get('name', '').strip()
+    number = data.get('number', '').strip()
+    category = data.get('category', 'Safe').strip()
+    if not name or not number:
+        return jsonify({'success': False, 'message': 'Name and phone number are required'}), 400
+    save_contact(name, number, category)
+    return jsonify({'success': True, 'message': 'Contact saved successfully to MySQL database'})
 
 @analysis_bp.route('/api/analyze_recorded', methods=['POST'])
 def analyze_recorded():

@@ -215,16 +215,25 @@
         document.getElementById('callModal').classList.remove('flex');
     }
 
-    function loadContacts() {
+    async function loadContacts() {
         if (window.AndroidContactsBridge && typeof window.AndroidContactsBridge.getContacts === 'function') {
             try {
                 const nativeStr = window.AndroidContactsBridge.getContacts();
                 const parsed = JSON.parse(nativeStr);
                 if (parsed && parsed.length > 0) {
                     contactsData = parsed;
+                    renderContacts(contactsData);
+                    return;
                 }
             } catch (e) {}
         }
+        try {
+            const res = await fetch('/api/get_contacts');
+            const data = await res.json();
+            if (data.success && data.contacts && data.contacts.length > 0) {
+                contactsData = data.contacts;
+            }
+        } catch(e) {}
         renderContacts(contactsData);
     }
 
@@ -256,8 +265,16 @@
         });
     }
 
-    function renderRecents() {
+    async function renderRecents() {
         const container = document.getElementById('recents-list');
+        try {
+            const res = await fetch('/api/get_recents');
+            const data = await res.json();
+            if (data.success && data.recents && data.recents.length > 0) {
+                recentsData = data.recents;
+            }
+        } catch(e) {}
+        
         container.innerHTML = '';
         recentsData.forEach(r => {
             const item = document.createElement('div');
