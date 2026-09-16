@@ -1,12 +1,15 @@
-﻿import re
+import re
 import logging
 from datetime import datetime
 from typing import Dict, List
+
+from core.ml_model import ScamClassifierML
 
 logger = logging.getLogger(__name__)
 
 class FraudDetector:
     def __init__(self):
+        self.ml_classifier = ScamClassifierML()
         self.scam_patterns = {
             'urgent_action': [
                 r'\burgen(t|cy)\b', r'\bimmediate(ly)?\b', r'\bright now\b', r'\bemergency\b',
@@ -191,20 +194,36 @@ class FraudDetector:
                     patterns_detected.append('lottery_scam')
                 warnings.append("🎯 LOTTERY SCAM PATTERN DETECTED!")
             
-            fraud_score = min(fraud_score, 100)
+            rule_score = min(fraud_score, 100)
             
-            if fraud_score < 30 and any(word in text_lower for word in 
+            # Predict using Machine Learning Model (TF-IDF + Calibrated Classifier)
+            ml_pred = self.ml_classifier.predict(text)
+            ml_score = ml_pred.get('ml_score', 0)
+            
+            # Hybrid ML + Rule-based Ensemble Score
+            if ml_score > 0:
+                final_score = (0.50 * rule_score) + (0.50 * ml_score)
+                if ml_score > 70 or rule_score > 70:
+                    final_score = max(final_score, max(rule_score, ml_score))
+            else:
+                final_score = rule_score
+
+            if final_score < 30 and any(word in text_lower for word in 
                 ['bank', 'money', 'otp', 'password', 'win', 'prize', 'lottery', 'payment', 'urgent', 'share', 'send']):
-                fraud_score = 35
+                final_score = max(final_score, 35)
                 warnings.append("🔍 Suspicious keywords detected - Potential scam attempt")
             
-            risk_level = self.get_risk_level(fraud_score)
-            warning_message = self.generate_warning_message(fraud_score, patterns_detected, red_flags)
+            final_score = min(round(final_score, 1), 100.0)
+            risk_level = self.get_risk_level(final_score)
+            warning_message = self.generate_warning_message(final_score, patterns_detected, red_flags)
             detailed_advice = self.get_detailed_advice(patterns_detected, red_flags)
             
             return {
-                'fraud_score': round(fraud_score, 2),
+                'fraud_score': final_score,
                 'risk_level': risk_level,
+                'ml_score': ml_score,
+                'ml_confidence': ml_pred.get('confidence', '95%'),
+                'ml_features': ml_pred.get('top_features', []),
                 'keywords_found': list(set(keywords_found))[:15],
                 'patterns_detected': list(set(patterns_detected)),
                 'red_flags': red_flags[:5],

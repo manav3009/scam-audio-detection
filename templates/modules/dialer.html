@@ -34,12 +34,17 @@
     <!-- TAB 1: KEYPAD DIALER -->
     <div id="view-keypad" class="bg-gray-900/95 backdrop-blur-2xl p-6 rounded-3xl border border-gray-800 shadow-2xl space-y-6">
         
-        <!-- Phone Number Display -->
-        <div class="bg-gray-950 p-4 rounded-2xl border border-gray-800 flex items-center justify-between shadow-inner">
-            <input type="text" id="phone-display" readonly placeholder="Enter phone number..." class="bg-transparent text-2xl sm:text-3xl font-mono font-black text-center text-white tracking-widest outline-none w-full">
-            <button onclick="backspace()" class="text-gray-400 hover:text-red-400 p-2 text-xl transition">
-                <i class="fas fa-backspace"></i>
-            </button>
+        <!-- Phone Number Display with Dynamic Trust Badge -->
+        <div class="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-2 shadow-inner">
+            <div class="flex items-center justify-between">
+                <input type="text" id="phone-display" onkeyup="checkCallerTrust()" readonly placeholder="Enter phone number..." class="bg-transparent text-2xl sm:text-3xl font-mono font-black text-center text-white tracking-widest outline-none w-full">
+                <button onclick="backspace()" class="text-gray-400 hover:text-red-400 p-2 text-xl transition">
+                    <i class="fas fa-backspace"></i>
+                </button>
+            </div>
+            <div id="caller-trust-badge" class="hidden text-center text-xs font-bold py-1 px-3 rounded-full mx-auto w-fit border">
+                <span id="caller-trust-text">Checking Trust Badge...</span>
+            </div>
         </div>
 
         <!-- Tactile 3x4 Dialpad Buttons -->
@@ -176,11 +181,43 @@
     function pressKey(key) {
         const display = document.getElementById('phone-display');
         display.value += key;
+        checkCallerTrust();
     }
 
     function backspace() {
         const display = document.getElementById('phone-display');
         display.value = display.value.slice(0, -1);
+        checkCallerTrust();
+    }
+
+    function checkCallerTrust() {
+        const display = document.getElementById('phone-display');
+        const badge = document.getElementById('caller-trust-badge');
+        const text = document.getElementById('caller-trust-text');
+        const num = display.value.trim();
+
+        if (!num) {
+            badge.classList.add('hidden');
+            return;
+        }
+
+        badge.classList.remove('hidden');
+        const matched = contactsData.find(c => c.number.replace(/\D/g,'') === num.replace(/\D/g,'') || num.includes(c.number));
+        if (matched) {
+            if (matched.category === 'Verified' || matched.category === 'Safe') {
+                badge.className = "text-center text-xs font-bold py-1 px-3 rounded-full mx-auto w-fit border bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+                text.textContent = `🟢 Verified Safe Contact: ${matched.name}`;
+            } else if (matched.category === 'Suspicious') {
+                badge.className = "text-center text-xs font-bold py-1 px-3 rounded-full mx-auto w-fit border bg-amber-500/20 text-amber-400 border-amber-500/30";
+                text.textContent = `🟡 Flagged Suspicious Contact: ${matched.name}`;
+            } else {
+                badge.className = "text-center text-xs font-bold py-1 px-3 rounded-full mx-auto w-fit border bg-red-500/20 text-red-400 border-red-500/30";
+                text.textContent = `🔴 Warning: ${matched.name}`;
+            }
+        } else {
+            badge.className = "text-center text-xs font-bold py-1 px-3 rounded-full mx-auto w-fit border bg-blue-500/20 text-blue-400 border-blue-500/30";
+            text.textContent = `ℹ️ Unknown Number — CallShield Active Scan`;
+        }
     }
 
     function initiateCall(numberToCall) {
