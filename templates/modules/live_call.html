@@ -272,19 +272,27 @@ if (SpeechRecognition) {
     };
     
     recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        if (event.error !== 'no-speech') {
-            stopRecording();
+        console.warn('Speech recognition status/event:', event.error);
+        if (isRecording && event.error !== 'not-allowed') {
+            setTimeout(() => {
+                if (isRecording) {
+                    try { recognition.start(); } catch(e) {}
+                }
+            }, 300);
         }
     };
     
     recognition.onend = () => {
         if (isRecording) {
-            try { recognition.start(); } catch(e) {}
+            setTimeout(() => {
+                if (isRecording) {
+                    try { recognition.start(); } catch(e) {}
+                }
+            }, 200);
         }
     };
 } else {
-    document.getElementById('transcriptArea').innerHTML = '<div class="text-yellow-400 text-center py-8">⚠️ Speech recognition microphone API is restricted or not supported in this browser environment.<br><span class="text-xs text-gray-400">You can still test fully using the custom text input box or quick preset buttons above!</span></div>';
+    document.getElementById('transcriptArea').innerHTML = '<div class="text-yellow-400 text-center py-8">⚠️ Microphone Speech Recognition API is initializing or restricted.<br><span class="text-xs text-gray-400">You can test live calls using the microphone, quick sample buttons, or custom text input above!</span></div>';
 }
 
 function startCallTimer() {
