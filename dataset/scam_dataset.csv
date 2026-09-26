@@ -20,6 +20,15 @@ transcript,label
 "This is police station cyber cell. We found illegal activity on your IP address. Pay fine online to avoid court summons.",1
 "Greetings! You have been selected for work from home job earning $500 daily. Pay registration fee of $50 to begin assignment.",1
 "Warning: Suspicious login attempt on your bank app from overseas. Share your OTP code with officer to secure account.",1
+"Namaste, mai bank officer bol raha hu. Aapka bank account block ho gaya hai. Abhi OTP batao nahi toh khata band ho jayega.",1
+"Aapka KYC expire ho gaya hai. Aapke phone par aaya 6 digit secret verification code turant share karo.",1
+"Congratulations! Aapki 25 lakh ki lottery lagi hai. Inaam lene ke liye 2000 rupaye processing fee Google Pay se bhejo.",1
+"Aapke bete ka accident ho gaya hai police station me hai. Bachtav ke liye turant 5000 rupaye UPI transfer karo.",1
+"Mai electricity department se bol raha hu. 30 minute me bijli ka connection kat diya jayega. Abhi bill bharo.",1
+"Namaskar, me banketun boltoy. Tumce bank khate block zale ahe. Unblock karnyasathi atech aalela OTP sanga.",1
+"Tumche KYC expire zale ahe. Bank khate surakshit karnyasathi tumcha PAN card aani OTP atech dya.",1
+"Abhinandan! Tumhala 10 lakh rupayanchi lottery lagli ahe. Inaam milvanyasathi 1500 rupaye processing fee gpay kara.",1
+"Tumchya mulacha accident zala ahe, police station madhe ahe. Sodvanyasathi atech paise pathva.",1
 "Hey there, we noticed an inquiry regarding your account upgrade. Could you confirm your registered mobile number and security pin when convenient?",1
 "Hello, I am calling to confirm your dental appointment for tomorrow at 10 AM. Please let us know if you need to reschedule.",0
 "Hi Mom, I will be reaching home by 7 PM today. Please keep dinner ready.",0
@@ -48,3 +57,7 @@ transcript,label
 "Hello, your application for the university workshop has been received. Confirmation email sent.",0
 "Hi John, reminding you to submit the library book by tomorrow to avoid late return fee.",0
 "Hi team, urgent reminder: please submit your monthly project status report before 5 PM today for management review.",0
+"Namaste mummy, mai shaam ko 7 baje ghar pahuch jaunga. Khana tayar rakhna.",0
+"Namaskar, tumchi car service purna zali ahe. Sandhyakali gadi ghevun java.",0
+"Hello sir, aapka Amazon delivery package ghar par deliver ho gaya hai. Dhanyawad.",0
+"Namaste, kal subah 10 baje doctor appointment hai. Kripya samay par aaye.",0

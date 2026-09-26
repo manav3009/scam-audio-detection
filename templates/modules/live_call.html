@@ -76,8 +76,18 @@
                     </div>
                     <h3 class="text-xl font-semibold text-white">Live Call Monitor</h3>
                     <p class="text-gray-400 text-sm mt-1">Dual-Speaker Mode — Auto-detects 2 persons speaking on live call</p>
+                <div class="mb-4 bg-gray-900/90 p-2.5 rounded-xl border border-purple-500/40 flex items-center justify-between text-xs shadow-inner">
+                    <span class="text-gray-200 font-bold flex items-center gap-1.5">
+                        <i class="fas fa-language text-purple-400 text-sm"></i> Speech Language:
+                    </span>
+                    <select id="languageSelect" onchange="changeSpeechLanguage(this.value)" class="bg-gray-950 text-white font-bold px-3 py-1.5 rounded-lg border border-purple-500/50 outline-none focus:border-purple-400 font-mono text-xs">
+                        <option value="hi-IN" selected>🇮🇳 Hindi (हिन्दी)</option>
+                        <option value="mr-IN">🇮🇳 Marathi (मराठी)</option>
+                        <option value="en-IN">🇮🇳 Indian English (Hinglish)</option>
+                        <option value="en-US">🇬🇧 US English</option>
+                    </select>
                 </div>
-                
+
                 <div class="flex gap-3">
                     <button id="startRecordBtn" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105">
                         <i class="fas fa-play mr-2"></i>Start Listening
@@ -217,18 +227,24 @@ let recognition = null;
 let isRecording = false;
 let silenceTimerInterval = null;
 let callDurationInterval = null;
-let silenceSeconds = 0;
-let callStartTimestamp = 0;
-let fullConversationTranscript = "";
-let currentAnalysisData = null;
-let isCallSaved = false;
-let speakerTurn = 0;
+let selectedLang = 'hi-IN';
+
+function changeSpeechLanguage(langCode) {
+    selectedLang = langCode;
+    if (recognition) {
+        recognition.lang = selectedLang;
+        addSystemMessage(`🌐 Speech recognition language switched to: <strong>${langCode}</strong>`);
+        if (isRecording) {
+            try { recognition.stop(); } catch(e){}
+        }
+    }
+}
 
 if (SpeechRecognition) {
     recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = selectedLang;
     
     recognition.onstart = () => {
         isRecording = true;

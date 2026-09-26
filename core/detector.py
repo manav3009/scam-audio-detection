@@ -15,14 +15,16 @@ class FraudDetector:
                 r'\burgen(t|cy)\b', r'\bimmediate(ly)?\b', r'\bright now\b', r'\bemergency\b',
                 r'\blast chance\b', r'\bwithin.*hour\b', r'\bact now\b', r'\bquick action\b',
                 r'\bhurry\b', r'\brush\b', r'\binstant\b', r'\bdeadline\b', r'\bquickly\b',
-                r'\blimited time\b', r'\bsoon\b', r'\bfast\b', r'\bnow\b', r'\basap\b'
+                r'\blimited time\b', r'\bsoon\b', r'\bfast\b', r'\bnow\b', r'\basap\b',
+                r'\bturant\b', r'\babhi\b', r'\batech\b', r'\bjaldi\b', r'\bfatafat\b'
             ],
             'financial_info': [
                 r'\bbank\b.*\baccount\b', r'\bpassword\b', r'\bpin\b', r'\botp\b', r'\bcvv\b',
                 r'\bcredit card\b', r'\bdebit card\b', r'\baccount number\b', r'\bifsc\b',
                 r'\bupi\b', r'\bgoogle pay\b', r'\bphonepe\b', r'\bpaytm\b', r'\batm card\b',
                 r'\bcard details\b', r'\baccount details\b', r'\bbanking information\b',
-                r'\bsecret code\b', r'\bsecurity code\b', r'\bverification code\b'
+                r'\bsecret code\b', r'\bsecurity code\b', r'\bverification code\b',
+                r'\bkhata\b', r'\bkhate\b', r'\bbatao\b', r'\bsanga\b'
             ],
             'threat_impersonation': [
                 r'\bblock.*account\b', r'\bsuspend.*account\b', r'\bclose.*account\b',
@@ -30,21 +32,23 @@ class FraudDetector:
                 r'\bincome tax\b', r'\bcustomer care\b', r'\bbank officer\b',
                 r'\btech support\b', r'\bservice executive\b', r'\bofficial\b',
                 r'\bauthority\b', r'\bfrom bank\b', r'\bfrom government\b',
-                r'\btraffic police\b', r'\bcbi\b', r'\bed\b', r'\bit department\b'
+                r'\btraffic police\b', r'\bcbi\b', r'\bed\b', r'\bit department\b',
+                r'\bkhata block\b', r'\bkhate block\b', r'\bband ho\b', r'\bbanketun\b'
             ],
             'emotional_manipulation': [
                 r'\baccident\b', r'\bhospital\b', r'\bsick\b', r'\bemergency\b',
                 r'\bfamily emergency\b', r'\bhelp me\b', r'\bsave me\b', r'\btrouble\b',
                 r'\bdanger\b', r'\bpleading\b', r'\bbegging\b', r'\bcrying\b',
                 r'\bpoor\b', r'\bneed money\b', r'\bdesperate\b', r'\bdying\b',
-                r'\bcritical\b', r'\bhelp needed\b', r'\bplease help\b'
+                r'\bcritical\b', r'\bhelp needed\b', r'\bplease help\b',
+                r'\bmulacha accident\b', r'\bbete ka accident\b'
             ],
             'fake_rewards': [
                 r'\bprize\b', r'\bwon\b', r'\blower\b', r'\blottery\b', r'\breward\b',
                 r'\bwinner\b', r'\bfree gift\b', r'\bfree money\b', r'\bjackpot\b',
                 r'\bbonus\b', r'\bcongratulations\b', r'\byou won\b', r'\byou have won\b',
                 r'\bselected\b', r'\blucky draw\b', r'\bcash prize\b', r'\blucky winner\b',
-                r'\bmillionaire\b', r'\bcrore\b', r'\blakh\b'
+                r'\bmillionaire\b', r'\bcrore\b', r'\blakh\b', r'\blottery lagi\b', r'\blottery lagli\b', r'\binaam\b'
             ],
             'payment_demands': [
                 r'\bsend money\b', r'\btransfer.*amount\b', r'\bpay now\b', r'\bdeposit\b',
@@ -52,7 +56,7 @@ class FraudDetector:
                 r'\badvance payment\b', r'\bfee\b', r'\bcharges\b', r'\bpayment\b',
                 r'\bmoney transfer\b', r'\bwire transfer\b', r'\bgift card\b',
                 r'\bcryptocurrency\b', r'\bbitcoin\b', r'\bgpay\b', r'\bpaytm\b',
-                r'\bphonepe\b', r'\bupi\b'
+                r'\bphonepe\b', r'\bupi\b', r'\bpaisa bhejo\b', r'\bpaise pathva\b', r'\bbill bharo\b'
             ],
             'sensitive_info': [
                 r'\baadhaar\b', r'\bpan card\b', r'\bvoter id\b', r'\bdriving license\b',
@@ -63,7 +67,7 @@ class FraudDetector:
             'verification_requests': [
                 r'\bverify\b', r'\bconfirmation\b', r'\bauthentication\b', r'\bvalidation\b',
                 r'\bcheck\b', r'\bconfirm\b', r'\bverify account\b', r'\bconfirm details\b',
-                r'\bupdate kyc\b', r'\bkyc verification\b', r'\baccount verification\b'
+                r'\bupdate kyc\b', r'\bkyc verification\b', r'\baccount verification\b', r'\bkyc expire\b'
             ]
         }
         
@@ -84,7 +88,9 @@ class FraudDetector:
             "link expired", "click link", "share otp", "verify account", "share details",
             "bank details", "confidential information", "immediate action", "last opportunity",
             "limited time", "secret offer", "special offer", "processing fee", "security deposit",
-            "advance payment", "kindly share", "please share", "unblock now", "share immediately"
+            "advance payment", "kindly share", "please share", "unblock now", "share immediately",
+            "otp batao", "otp sanga", "khata block", "khate block", "paisa bhejo", "paise pathva",
+            "lottery lagi", "lottery lagli", "bank officer bol", "banketun bol"
         ]
         
         self.scam_patterns_full = [

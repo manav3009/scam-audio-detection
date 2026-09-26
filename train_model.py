@@ -38,7 +38,7 @@ def train_and_export_model():
         ngram_range=(1, 3),
         sublinear_tf=True,
         min_df=1,
-        stop_words='english'
+        stop_words=None
     )
     X = vectorizer.fit_transform(texts)
     
