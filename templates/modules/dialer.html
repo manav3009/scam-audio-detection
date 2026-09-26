@@ -13,7 +13,10 @@
             </h1>
             <p class="text-xs text-gray-400 mt-0.5">Identify unknown callers, block spam numbers, and place calls with AI scam protection.</p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="testAutoDialAndRecord()" class="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-white text-xs font-bold rounded-full flex items-center gap-1.5 shadow-md transition transform active:scale-95">
+                <i class="fas fa-bolt"></i> Auto-Dial & Record Test
+            </button>
             <button onclick="openAddContactModal()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-full flex items-center gap-1.5 shadow-md transition">
                 <i class="fas fa-user-plus"></i> Add Contact
             </button>
@@ -339,9 +342,14 @@
             return;
         }
         activeNumber = num;
-        document.getElementById('modal-target-name').textContent = `Calling ${num}...`;
-        document.getElementById('callModal').classList.remove('hidden');
-        document.getElementById('callModal').classList.add('flex');
+        confirmTriggerCall();
+    }
+
+    function testAutoDialAndRecord() {
+        const testNum = "+1 800-555-0199";
+        activeNumber = testNum;
+        alert("⚡ Triggering Auto-Dial & Real-Time AI Voice Monitor Test for " + testNum);
+        confirmTriggerCall();
     }
 
     function confirmTriggerCall() {
