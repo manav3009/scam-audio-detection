@@ -4,7 +4,7 @@ views_bp = Blueprint('views', __name__)
 
 @views_bp.route('/')
 def landing():
-    return redirect(url_for('views.dialer'))
+    return render_template('modules/dialer.html')
 
 @views_bp.route('/student-access')
 def student_access():
