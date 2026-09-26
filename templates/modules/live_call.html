@@ -696,7 +696,7 @@ function escapeRegex(string) {
     return string.replace(/([.*+?^${}()|[\]\/\\])/g, '\\$1');
 }
 
-document.getElementById('startRecordBtn').addEventListener('click', () => {
+function startListening() {
     fullConversationTranscript = "";
     currentAnalysisData = null;
     isCallSaved = false;
@@ -718,26 +718,31 @@ document.getElementById('startRecordBtn').addEventListener('click', () => {
     document.getElementById('riskLevelText').className = 'text-lg font-semibold text-gray-400';
     document.getElementById('summaryRisk').innerHTML = '<span class="text-gray-400 font-semibold">-</span>';
     document.getElementById('recommendationCard').className = 'rounded-lg p-4 bg-gray-900/50';
-    document.getElementById('recommendationText').innerHTML = 'Start speaking or typing to analyze the call';
+    document.getElementById('recommendationText').innerHTML = 'Listening live speech stream...';
 
     if (recognition) {
         try { recognition.start(); } catch(e) {}
     } else {
-        addSystemMessage('⚠️ Microphone Speech Recognition API not available in this browser. Use preset buttons or custom text input above to test!');
+        addSystemMessage('⚠️ Microphone Speech Recognition initializing. Speak into phone or type speech above.');
     }
+}
+
+document.getElementById('startRecordBtn').addEventListener('click', startListening);
+
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const phone = urlParams.get('phone');
     const autostart = urlParams.get('autostart');
 
     if (phone) {
-        addSystemMessage(`📞 Active Call Connected: <strong>${phone}</strong> — CallShield AI Protection Enabled.`);
+        addSystemMessage(`📞 Active Call Connected with <strong>${phone}</strong> — CallShield AI Voice Protection Enabled.`);
     }
 
-    if (autostart === 'true') {
+    // Auto-start zero-click audio recognition on live call connect
+    if (autostart === 'true' || phone) {
         setTimeout(() => {
-            document.getElementById('startRecordBtn').click();
-        }, 500);
+            startListening();
+        }, 300);
     }
 });
 
