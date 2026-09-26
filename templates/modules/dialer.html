@@ -1,24 +1,63 @@
 {% extends "base.html" %}
 
-{% block title %}Phone Dialer & Contacts — CallShield AI{% endblock %}
+{% block title %}Truecaller Smart Dialer & Caller ID — CallShield AI{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto space-y-5">
     
-    <!-- Top Header Banner -->
-    <div class="bg-gray-900/90 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-gray-800 shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+    <!-- Top Header Banner with Truecaller Branding & Add Contact Button -->
+    <div class="bg-gray-900/90 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-blue-500/30 shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
             <h1 class="text-lg sm:text-2xl font-black text-white flex items-center gap-2">
-                <i class="fas fa-phone-square-alt text-blue-500"></i> CallShield Phone Dialer
+                <i class="fas fa-shield-alt text-blue-500"></i> Truecaller Smart Dialer & Caller ID
             </h1>
-            <p class="text-xs text-gray-400 mt-0.5">Place phone calls directly with real-time AI voice scam monitoring.</p>
+            <p class="text-xs text-gray-400 mt-0.5">Identify unknown callers, block spam numbers, and place calls with AI scam protection.</p>
         </div>
-        <div id="device-badge" class="px-3 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-bold rounded-full flex items-center gap-1.5">
-            <i class="fas fa-mobile-alt"></i> Native Phone Mode
+        <div class="flex items-center gap-2">
+            <button onclick="openAddContactModal()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-full flex items-center gap-1.5 shadow-md transition">
+                <i class="fas fa-user-plus"></i> Add Contact
+            </button>
+            <div id="device-badge" class="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-full flex items-center gap-1.5">
+                <i class="fas fa-mobile-alt"></i> Native Truecaller Mode
+            </div>
         </div>
     </div>
 
-    <!-- Phone App Navigation Tabs -->
+    <!-- Truecaller Search Bar & Instant Identity Card -->
+    <div class="bg-gray-900/95 backdrop-blur-2xl p-4 rounded-2xl border border-gray-800 shadow-lg space-y-3">
+        <div class="relative">
+            <i class="fas fa-search absolute left-4 top-3.5 text-blue-400 text-base"></i>
+            <input type="text" id="truecaller-search" onkeyup="handleTruecallerSearch()" placeholder="Search name, phone number, or identify unknown caller..." class="w-full pl-11 pr-24 py-3 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white focus:border-blue-500 outline-none font-mono">
+            <button onclick="performCallerLookup()" class="absolute right-2 top-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg transition">
+                Lookup ID
+            </button>
+        </div>
+
+        <!-- Dynamic Truecaller Identity Result Card -->
+        <div id="caller-id-card" class="hidden p-4 rounded-xl border bg-gray-950/90 transition-all duration-300">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div id="caller-avatar" class="w-12 h-12 rounded-full bg-blue-600 text-white font-black text-xl flex items-center justify-center shadow-md">
+                        ?
+                    </div>
+                    <div>
+                        <h3 id="caller-name" class="text-base font-bold text-white">Caller Name</h3>
+                        <p id="caller-number" class="text-xs text-gray-400 font-mono">+1 000-000-0000</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span id="caller-badge" class="px-3 py-1 text-xs font-bold rounded-full border inline-block">
+                        🟢 Safe
+                    </span>
+                    <button onclick="reportSpamModal()" class="block text-[11px] text-red-400 hover:text-red-300 font-bold mt-1.5 text-right w-full">
+                        <i class="fas fa-ban"></i> Report Spam
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs: Keypad, Contacts, Recents -->
     <div class="grid grid-cols-3 bg-gray-900/90 backdrop-blur-xl p-1.5 rounded-2xl border border-gray-800 shadow-lg">
         <button onclick="switchTab('keypad')" id="tab-keypad" class="py-2.5 rounded-xl font-bold text-xs sm:text-sm text-blue-400 bg-blue-600/20 border border-blue-500/30 flex items-center justify-center gap-2 transition">
             <i class="fas fa-th"></i> Keypad
@@ -27,7 +66,7 @@
             <i class="fas fa-address-book"></i> Contacts
         </button>
         <button onclick="switchTab('recents')" id="tab-recents" class="py-2.5 rounded-xl font-bold text-xs sm:text-sm text-gray-400 hover:text-white flex items-center justify-center gap-2 transition">
-            <i class="fas fa-history"></i> Recents
+            <i class="fas fa-history"></i> Recents Log
         </button>
     </div>
 
@@ -37,7 +76,7 @@
         <!-- Phone Number Display with Dynamic Trust Badge -->
         <div class="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-2 shadow-inner">
             <div class="flex items-center justify-between">
-                <input type="text" id="phone-display" onkeyup="checkCallerTrust()" readonly placeholder="Enter phone number..." class="bg-transparent text-2xl sm:text-3xl font-mono font-black text-center text-white tracking-widest outline-none w-full">
+                <input type="text" id="phone-display" readonly placeholder="Enter phone number..." class="bg-transparent text-2xl sm:text-3xl font-mono font-black text-center text-white tracking-widest outline-none w-full">
                 <button onclick="backspace()" class="text-gray-400 hover:text-red-400 p-2 text-xl transition">
                     <i class="fas fa-backspace"></i>
                 </button>
@@ -93,16 +132,17 @@
                 <i class="fas fa-phone-alt"></i>
             </button>
         </div>
-        <p class="text-center text-xs text-gray-400 font-medium">Tap green Call button to place call with CallShield Protection</p>
+        <p class="text-center text-xs text-gray-400 font-medium">Tap green Call button to place call with Truecaller CallShield Protection</p>
     </div>
 
     <!-- TAB 2: CONTACTS LIST -->
     <div id="view-contacts" class="hidden bg-gray-900/95 backdrop-blur-2xl p-5 rounded-3xl border border-gray-800 shadow-2xl space-y-4">
-        <div class="relative">
-            <i class="fas fa-search absolute left-3.5 top-3.5 text-gray-500"></i>
-            <input type="text" id="contact-search" onkeyup="filterContacts()" placeholder="Search contacts..." class="w-full pl-10 pr-4 py-3 bg-gray-950 border border-gray-800 rounded-xl text-sm text-gray-200 focus:border-blue-500 outline-none">
+        <div class="flex justify-between items-center">
+            <h2 class="text-sm font-bold text-gray-300 uppercase tracking-wider">Address Book & Verified Contacts</h2>
+            <button onclick="openAddContactModal()" class="px-3 py-1 bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded-lg text-xs font-bold hover:bg-blue-600/50 transition">
+                + New Contact
+            </button>
         </div>
-        
         <div id="contacts-list" class="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
             <!-- Dynamic Contacts Rendered Here -->
         </div>
@@ -110,7 +150,7 @@
 
     <!-- TAB 3: RECENTS LOG -->
     <div id="view-recents" class="hidden bg-gray-900/95 backdrop-blur-2xl p-5 rounded-3xl border border-gray-800 shadow-2xl space-y-4">
-        <h2 class="text-sm font-bold text-gray-300 uppercase tracking-wider">Recent Calls History</h2>
+        <h2 class="text-sm font-bold text-gray-300 uppercase tracking-wider">Recent Calls & Spam History</h2>
         <div id="recents-list" class="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
             <!-- Dynamic Recents Rendered Here -->
         </div>
@@ -126,7 +166,7 @@
         </div>
         <div>
             <h3 class="text-xl font-black text-white" id="modal-target-name">Calling Number...</h3>
-            <p class="text-sm text-emerald-400 font-bold mt-1">🛡️ CallShield AI Scam Protection Active</p>
+            <p class="text-sm text-emerald-400 font-bold mt-1">🛡️ Truecaller CallShield Protection Active</p>
         </div>
 
         <div class="space-y-3">
@@ -140,18 +180,55 @@
     </div>
 </div>
 
+<!-- Add Contact Modal -->
+<div id="addContactModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+    <div class="bg-gray-900 border border-blue-500/40 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl animate-slide-up">
+        <h3 class="text-lg font-black text-white flex items-center gap-2">
+            <i class="fas fa-user-plus text-blue-400"></i> Add New Contact
+        </h3>
+        <div class="space-y-3 text-left">
+            <div>
+                <label class="text-xs text-gray-400 font-bold">Contact Name</label>
+                <input type="text" id="new-contact-name" placeholder="John Doe" class="w-full px-3 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white focus:border-blue-500 outline-none mt-1">
+            </div>
+            <div>
+                <label class="text-xs text-gray-400 font-bold">Phone Number</label>
+                <input type="text" id="new-contact-number" placeholder="+1 555-0199" class="w-full px-3 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white focus:border-blue-500 outline-none mt-1 font-mono">
+            </div>
+            <div>
+                <label class="text-xs text-gray-400 font-bold">Safety Tag Category</label>
+                <select id="new-contact-category" class="w-full px-3 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white focus:border-blue-500 outline-none mt-1">
+                    <option value="Safe">🟢 Safe Contact</option>
+                    <option value="Verified">🟢 Verified Business</option>
+                    <option value="Suspicious">🟡 Suspicious</option>
+                    <option value="Spam">🔴 Spam / Scam Number</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="flex gap-2 pt-2">
+            <button onclick="submitNewContact()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl shadow-lg transition">
+                Save Contact
+            </button>
+            <button onclick="closeAddContactModal()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded-xl border border-gray-700">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     let activeNumber = "";
     let contactsData = [
-        { name: "Mom", number: "+1 555-0192" },
-        { name: "Bank Customer Service", number: "+1 800-555-0199" },
-        { name: "Manager John", number: "+1 555-0143" },
-        { name: "Tech Support Hotline", number: "+1 555-0188" },
-        { name: "Emergency Services", number: "911" }
+        { name: "Mom", number: "+1 555-0192", category: "Safe" },
+        { name: "Bank Customer Service", number: "+1 800-555-0199", category: "Verified" },
+        { name: "Manager John", number: "+1 555-0143", category: "Safe" },
+        { name: "Tech Support Hotline", number: "+1 555-0188", category: "Suspicious" },
+        { name: "Emergency Services", number: "911", category: "Emergency" }
     ];
 
     let recentsData = [
-        { name: "Bank Customer Service", number: "+1 800-555-0199", time: "10 mins ago", risk: "Low Risk (0%)" },
+        { name: "Bank Customer Service", number: "+1 800-555-0199", time: "10 mins ago", risk: "🟢 Verified Safe (0%)" },
         { name: "Unknown Caller", number: "+1 888-392-1011", time: "1 hour ago", risk: "🔴 High Scam Risk (92%)" }
     ];
 
@@ -190,6 +267,40 @@
         checkCallerTrust();
     }
 
+    async function handleTruecallerSearch() {
+        const query = document.getElementById('truecaller-search').value.trim();
+        if (query.length >= 3) {
+            performCallerLookup(query);
+        }
+    }
+
+    async function performCallerLookup(searchNum) {
+        const num = searchNum || document.getElementById('truecaller-search').value.trim();
+        if (!num) return;
+
+        try {
+            const res = await fetch(`/api/caller_lookup?number=${encodeURIComponent(num)}`);
+            const data = await res.json();
+            if (data.success && data.caller) {
+                const c = data.caller;
+                document.getElementById('caller-id-card').classList.remove('hidden');
+                document.getElementById('caller-name').textContent = c.name;
+                document.getElementById('caller-number').textContent = c.number;
+                document.getElementById('caller-avatar').textContent = c.name.charAt(0).toUpperCase();
+
+                const badge = document.getElementById('caller-badge');
+                badge.textContent = c.badge;
+                if (c.status === 'Safe') {
+                    badge.className = "px-3 py-1 text-xs font-bold rounded-full border bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+                } else if (c.status === 'Suspicious') {
+                    badge.className = "px-3 py-1 text-xs font-bold rounded-full border bg-amber-500/20 text-amber-400 border-amber-500/30";
+                } else {
+                    badge.className = "px-3 py-1 text-xs font-bold rounded-full border bg-red-500/20 text-red-400 border-red-500/30";
+                }
+            }
+        } catch(e) {}
+    }
+
     function checkCallerTrust() {
         const display = document.getElementById('phone-display');
         const badge = document.getElementById('caller-trust-badge');
@@ -212,11 +323,11 @@
                 text.textContent = `🟡 Flagged Suspicious Contact: ${matched.name}`;
             } else {
                 badge.className = "text-center text-xs font-bold py-1 px-3 rounded-full mx-auto w-fit border bg-red-500/20 text-red-400 border-red-500/30";
-                text.textContent = `🔴 Warning: ${matched.name}`;
+                text.textContent = `🔴 Spam / Scam Warning: ${matched.name}`;
             }
         } else {
             badge.className = "text-center text-xs font-bold py-1 px-3 rounded-full mx-auto w-fit border bg-blue-500/20 text-blue-400 border-blue-500/30";
-            text.textContent = `ℹ️ Unknown Number — CallShield Active Scan`;
+            text.textContent = `ℹ️ Unknown Number — Truecaller CallShield Protection`;
         }
     }
 
@@ -234,14 +345,12 @@
     }
 
     function confirmTriggerCall() {
-        // Trigger Native Android Dialing Bridge or tel: link
         if (window.AndroidContactsBridge && typeof window.AndroidContactsBridge.makePhoneCall === 'function') {
             window.AndroidContactsBridge.makePhoneCall(activeNumber);
         } else {
             window.open(`tel:${activeNumber}`, '_self');
         }
 
-        // Open Live Call Scanner with autostart enabled
         setTimeout(() => {
             window.location.href = `/modules/live-call?phone=${encodeURIComponent(activeNumber)}&autostart=true`;
         }, 600);
@@ -250,6 +359,60 @@
     function closeCallModal() {
         document.getElementById('callModal').classList.add('hidden');
         document.getElementById('callModal').classList.remove('flex');
+    }
+
+    function openAddContactModal() {
+        document.getElementById('addContactModal').classList.remove('hidden');
+        document.getElementById('addContactModal').classList.add('flex');
+    }
+
+    function closeAddContactModal() {
+        document.getElementById('addContactModal').classList.add('hidden');
+        document.getElementById('addContactModal').classList.remove('flex');
+    }
+
+    async function submitNewContact() {
+        const name = document.getElementById('new-contact-name').value.trim();
+        const number = document.getElementById('new-contact-number').value.trim();
+        const category = document.getElementById('new-contact-category').value;
+
+        if (!name || !number) {
+            alert('Please enter both name and phone number.');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/add_contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, number, category })
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeAddContactModal();
+                loadContacts();
+                alert('Contact saved successfully to Truecaller database!');
+            }
+        } catch(e) {}
+    }
+
+    async function reportSpamModal() {
+        const num = document.getElementById('caller-number').textContent;
+        const name = document.getElementById('caller-name').textContent;
+        if (confirm(`Are you sure you want to report ${num} as Spam/Scam to Truecaller database?`)) {
+            try {
+                const res = await fetch('/api/report_spam', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ number: num, name: name, category: 'Spam' })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`Number ${num} has been reported as Spam!`);
+                    performCallerLookup(num);
+                }
+            } catch(e) {}
+        }
     }
 
     async function loadContacts() {
@@ -282,6 +445,11 @@
             return;
         }
         list.forEach(c => {
+            const category = c.category || 'Safe';
+            let badgeHtml = '<span class="text-[10px] text-emerald-400 font-bold">🟢 Safe</span>';
+            if (category === 'Suspicious') badgeHtml = '<span class="text-[10px] text-amber-400 font-bold">🟡 Suspicious</span>';
+            if (category === 'Spam' || category === 'Scam') badgeHtml = '<span class="text-[10px] text-red-400 font-bold">🔴 Spam</span>';
+
             const item = document.createElement('div');
             item.className = "p-3.5 bg-gray-950/80 border border-gray-800 rounded-2xl flex items-center justify-between";
             item.innerHTML = `
@@ -290,7 +458,7 @@
                         ${c.name.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                        <h4 class="text-sm font-bold text-white">${c.name}</h4>
+                        <h4 class="text-sm font-bold text-white flex items-center gap-1.5">${c.name} ${badgeHtml}</h4>
                         <p class="text-xs text-gray-400 font-mono">${c.number}</p>
                     </div>
                 </div>

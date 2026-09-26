@@ -180,6 +180,7 @@ def init_db():
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS chat_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sender INTEGER PRIMARY KEY AUTOINCREMENT,
                     sender TEXT NOT NULL,
                     message TEXT NOT NULL,
                     response TEXT,
@@ -326,6 +327,70 @@ def get_contacts():
     except Exception as e:
         print(f"[!] Error fetching contacts: {e}")
     return contacts
+
+def search_caller_identity(number):
+    """Truecaller-style Caller ID Lookup against Database Contacts and Scam Reports."""
+    clean_num = "".join(filter(str.isdigit, str(number)))
+    contacts = get_contacts()
+    
+    # 1. Address Book Match
+    for c in contacts:
+        c_num = "".join(filter(str.isdigit, str(c['number'])))
+        if clean_num and (clean_num in c_num or c_num in clean_num):
+            category = c.get('category', 'Safe')
+            if category in ['Verified', 'Safe', 'Emergency']:
+                return {
+                    "name": c['name'],
+                    "number": c['number'],
+                    "badge": "🟢 Verified Safe",
+                    "status": "Safe",
+                    "risk_score": 0,
+                    "color": "emerald"
+                }
+            elif category == 'Suspicious':
+                return {
+                    "name": c['name'],
+                    "number": c['number'],
+                    "badge": "🟡 Flagged Suspicious",
+                    "status": "Suspicious",
+                    "risk_score": 60,
+                    "color": "amber"
+                }
+            elif category in ['Spam', 'Scam']:
+                return {
+                    "name": c['name'],
+                    "number": c['number'],
+                    "badge": "🔴 Flagged Scam / Spam",
+                    "status": "Scam",
+                    "risk_score": 90,
+                    "color": "red"
+                }
+
+    # 2. Call Reports / Community Database Match
+    reports = get_call_reports()
+    for r in reports:
+        r_num = "".join(filter(str.isdigit, str(r.get('phone_number', ''))))
+        if clean_num and r_num and (clean_num in r_num or r_num in clean_num):
+            fraud = r.get('fraud_score', 0)
+            if fraud >= 50:
+                return {
+                    "name": f"Unknown ({r.get('scam_type', 'Scam Call')})",
+                    "number": number,
+                    "badge": f"🔴 Reported Scam ({fraud}%)",
+                    "status": "Scam",
+                    "risk_score": fraud,
+                    "color": "red"
+                }
+
+    # 3. Default Truecaller Community Lookup Badge
+    return {
+        "name": f"Caller ({number})",
+        "number": number,
+        "badge": "ℹ️ Unknown Number — CallShield Protection",
+        "status": "Unknown",
+        "risk_score": 15,
+        "color": "blue"
+    }
 
 def save_chat_log(sender, message, response='', source='assistant'):
     """Save user-bot chatbot interaction log into database."""

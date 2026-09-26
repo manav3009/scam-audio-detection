@@ -3,7 +3,27 @@ from flask import Blueprint, request, jsonify
 from core.detector import FraudDetector
 from core.test_data import TEST_AUDIO_FILES
 
-from core.database import save_call_report, get_call_reports, get_contacts, save_contact
+from core.database import save_call_report, get_call_reports, get_contacts, save_contact, search_caller_identity
+
+@analysis_bp.route('/api/caller_lookup', methods=['GET', 'POST'])
+def caller_lookup():
+    data = request.json if request.method == 'POST' else request.args
+    number = data.get('number', '').strip()
+    if not number:
+        return jsonify({'success': False, 'message': 'Phone number is required'}), 400
+    identity = search_caller_identity(number)
+    return jsonify({'success': True, 'caller': identity})
+
+@analysis_bp.route('/api/report_spam', methods=['POST'])
+def report_spam():
+    data = request.json or {}
+    number = data.get('number', '').strip()
+    name = data.get('name', 'Flagged Spam').strip()
+    category = data.get('category', 'Spam').strip()
+    if not number:
+        return jsonify({'success': False, 'message': 'Phone number is required'}), 400
+    save_contact(name, number, category)
+    return jsonify({'success': True, 'message': f'Phone number {number} has been reported as {category} to Truecaller-style database!'})
 
 analysis_bp = Blueprint('analysis', __name__)
 fraud_detector = FraudDetector()
