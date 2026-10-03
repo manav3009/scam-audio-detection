@@ -740,9 +740,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Auto-start zero-click audio recognition on live call connect
     if (autostart === 'true' || phone) {
+        addSystemMessage('⏳ Initializing auto-listening for live call...');
+        
+        // Try immediately after a short delay
         setTimeout(() => {
-            startListening();
-        }, 300);
+            if (!isRecording) startListening();
+        }, 800);
+        
+        // Aggressive fallback: Keep trying every 1.5 seconds until it starts
+        const autoStartInterval = setInterval(() => {
+            if (isRecording) {
+                clearInterval(autoStartInterval);
+                console.log("Autostart successful.");
+            } else {
+                console.log("Retrying autostart...");
+                startListening();
+            }
+        }, 1500);
+        
+        // Stop retrying after 15 seconds to prevent infinite loops if permission is denied
+        setTimeout(() => { clearInterval(autoStartInterval); }, 15000);
     }
 });
 
