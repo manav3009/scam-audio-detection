@@ -729,13 +729,43 @@ function startListening() {
 
 document.getElementById('startRecordBtn').addEventListener('click', startListening);
 
+// NATIVE ANDROID INJECTION FUNCTION
+window.injectNativeSpeech = function(text, isFinal) {
+    if (callStartTimestamp === 0) {
+        callStartTimestamp = Date.now();
+        startCallTimer();
+        document.getElementById('recordingStatus').classList.remove('hidden');
+        const micIcon = document.getElementById('micIcon');
+        micIcon.classList.add('recording-active');
+        micIcon.innerHTML = '<i class="fas fa-microphone-alt text-5xl text-red-500"></i>';
+    }
+    if (isFinal) {
+        fullConversationTranscript += text + " ";
+        updateAccurateWordCount();
+        addToConversation(text, true);
+        analyzeWithBackend(fullConversationTranscript);
+    } else {
+        updateInterimDisplay(text);
+    }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const phone = urlParams.get('phone');
     const autostart = urlParams.get('autostart');
+    const nativemic = urlParams.get('nativemic');
 
     if (phone) {
         addSystemMessage(`📞 Active Call Connected with <strong>${phone}</strong> — CallShield AI Voice Protection Enabled.`);
+    }
+
+    if (nativemic === 'true') {
+        // Native Android app is handling the microphone!
+        addSystemMessage('🎙️ Android OS Native Microphone active. Zero-click listening enabled.');
+        document.getElementById('startRecordBtn').innerHTML = '<i class="fas fa-satellite-dish mr-2 animate-pulse"></i>Native Listen Active';
+        document.getElementById('startRecordBtn').classList.replace('from-green-600', 'from-blue-600');
+        document.getElementById('startRecordBtn').classList.replace('to-green-700', 'to-blue-700');
+        return; // Skip HTML5 speech recognition autostart
     }
 
     // Auto-start zero-click audio recognition on live call connect
