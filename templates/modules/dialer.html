@@ -1,520 +1,965 @@
 {% extends "base.html" %}
-
-{% block title %}Truecaller Smart Dialer & Caller ID — CallShield AI{% endblock %}
+{% block title %}Phone — CallShield AI{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto space-y-5">
-    
-    <!-- Top Header Banner with Truecaller Branding & Add Contact Button -->
-    <div class="bg-gray-900/90 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-blue-500/30 shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div>
-            <h1 class="text-lg sm:text-2xl font-black text-white flex items-center gap-2">
-                <i class="fas fa-shield-alt text-blue-500"></i> Truecaller Smart Dialer & Caller ID
-            </h1>
-            <p class="text-xs text-gray-400 mt-0.5">Identify unknown callers, block spam numbers, and place calls with AI scam protection.</p>
-        </div>
-        <div class="flex items-center gap-2 flex-wrap">
-            <button onclick="testAutoDialAndRecord()" class="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-white text-xs font-bold rounded-full flex items-center gap-1.5 shadow-md transition transform active:scale-95">
-                <i class="fas fa-bolt"></i> Auto-Dial & Record Test
-            </button>
-            <button onclick="openAddContactModal()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-full flex items-center gap-1.5 shadow-md transition">
-                <i class="fas fa-user-plus"></i> Add Contact
-            </button>
-            <div id="device-badge" class="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-full flex items-center gap-1.5">
-                <i class="fas fa-mobile-alt"></i> Native Truecaller Mode
-            </div>
-        </div>
+<style>
+  /* ── Dialer-only styles ── */
+  .dialer-wrap {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 0 0 80px 0;
+    font-family: 'Inter', sans-serif;
+  }
+  .dialer-header {
+    padding: 14px 18px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .dialer-title { font-size: 22px; font-weight: 800; color: #fff; }
+  .dialer-sub   { font-size: 12px; color: #6b7280; margin-top: 1px; }
+
+  /* Number display */
+  .num-display {
+    text-align: center;
+    padding: 16px 20px 4px;
+    min-height: 52px;
+    font-size: 30px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 4px;
+    font-family: monospace;
+    position: relative;
+  }
+  .num-display .backspace-btn {
+    position: absolute;
+    right: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #9ca3af;
+    font-size: 22px;
+    cursor: pointer;
+    padding: 6px;
+  }
+  .num-display .backspace-btn:active { color: #ef4444; }
+  .display-placeholder { color: #374151; font-size: 18px; letter-spacing: 1px; }
+
+  /* Tabs */
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid #1f2937;
+    margin: 8px 0 0;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 11px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .tab-btn.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+
+  /* Keypad */
+  .keypad-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 18px 28px 10px;
+    max-width: 360px;
+    margin: 0 auto;
+  }
+  .key-btn {
+    width: 74px;
+    height: 74px;
+    border-radius: 50%;
+    background: #1c1f26;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+    justify-self: center;
+  }
+  .key-btn:active { background: #2d3748; transform: scale(0.92); }
+  .key-num { font-size: 26px; font-weight: 600; color: #e5e7eb; line-height: 1; }
+  .key-sub { font-size: 9px; color: #6b7280; letter-spacing: 1.5px; margin-top: 2px; font-weight: 600; }
+
+  /* Call button row */
+  .call-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 36px;
+    padding: 10px 28px 16px;
+    position: relative;
+  }
+  .call-btn {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: #22c55e;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 4px 24px rgba(34,197,94,.45);
+    transition: transform .15s, background .15s;
+  }
+  .call-btn:active { transform: scale(0.9); background: #16a34a; }
+  .call-btn-placeholder { width: 48px; }
+
+  /* Contacts / Recents list */
+  .contact-list { padding: 10px 14px; }
+  .contact-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 11px 12px;
+    border-radius: 14px;
+    transition: background .15s;
+    cursor: pointer;
+  }
+  .contact-item:hover, .contact-item:active { background: #111827; }
+  .contact-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+    text-transform: uppercase;
+  }
+  .contact-info { flex: 1; min-width: 0; }
+  .contact-name { font-size: 15px; font-weight: 600; color: #f3f4f6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .contact-num  { font-size: 12px; color: #6b7280; font-family: monospace; margin-top: 2px; }
+  .contact-call-btn {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: #14532d;
+    border: none;
+    color: #4ade80;
+    font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background .15s;
+    flex-shrink: 0;
+  }
+  .contact-call-btn:active { background: #166534; }
+
+  /* Badge */
+  .badge-safe { color: #4ade80; font-size: 11px; font-weight: 700; }
+  .badge-warn { color: #fbbf24; font-size: 11px; font-weight: 700; }
+  .badge-spam { color: #f87171; font-size: 11px; font-weight: 700; }
+
+  /* Favorites star */
+  .fav-star { color: #fbbf24; font-size: 12px; margin-left: 4px; }
+
+  /* Active call overlay */
+  #activeCallScreen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #070a13;
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+  }
+  #activeCallScreen.visible { display: flex; }
+  .active-call-top {
+    width: 100%;
+    text-align: center;
+    padding: 52px 24px 24px;
+  }
+  .active-call-label { font-size: 14px; color: #9ca3af; letter-spacing: 1px; margin-bottom: 20px; }
+  .active-call-avatar {
+    width: 110px; height: 110px;
+    border-radius: 50%;
+    background: #1c1f26;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px; color: #9ca3af;
+    margin: 0 auto 16px;
+    border: 3px solid #1f2937;
+  }
+  .active-call-name { font-size: 28px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+  .active-call-timer { font-size: 15px; color: #6b7280; font-family: monospace; }
+
+  /* Scam detection card */
+  .scam-card {
+    width: calc(100% - 32px);
+    background: #0f1a33;
+    border: 1.5px solid #1d4ed8;
+    border-radius: 18px;
+    padding: 18px 20px;
+    margin: 16px auto 0;
+    transition: all .4s;
+  }
+  .scam-card.risk-high  { border-color: #dc2626; background: #1a0808; }
+  .scam-card.risk-med   { border-color: #d97706; background: #1a1008; }
+  .scam-card.risk-safe  { border-color: #16a34a; background: #091a10; }
+  .scam-card-header {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 15px; font-weight: 700; color: #60a5fa;
+    margin-bottom: 6px;
+  }
+  .scam-card.risk-high .scam-card-header { color: #f87171; }
+  .scam-card.risk-med  .scam-card-header { color: #fbbf24; }
+  .scam-card.risk-safe .scam-card-header { color: #4ade80; }
+  .scam-card-body  { font-size: 13px; color: #9ca3af; margin-bottom: 8px; }
+  .scam-risk-label { font-size: 14px; font-weight: 800; color: #60a5fa; letter-spacing: .5px; }
+  .scam-card.risk-high .scam-risk-label { color: #ef4444; }
+  .scam-card.risk-med  .scam-risk-label { color: #f59e0b; }
+  .scam-card.risk-safe .scam-risk-label { color: #22c55e; }
+  .scam-card-score { font-size: 22px; font-weight: 900; }
+
+  /* Active call bottom buttons */
+  .active-call-btns {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    margin-top: auto;
+    padding: 24px 24px 40px;
+    width: 100%;
+  }
+  .ac-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #9ca3af;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .ac-btn-icon {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: #1c1f26;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; color: #d1d5db;
+  }
+  .ac-btn-icon.red-btn { background: #dc2626; }
+  .ac-btn-icon.blue-btn { background: #2563eb; }
+
+  /* Search bar */
+  .search-bar {
+    display: flex;
+    align-items: center;
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+    margin: 10px 14px 6px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .search-bar input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 14px;
+    padding: 11px 0;
+    outline: none;
+  }
+  .search-bar input::placeholder { color: #4b5563; }
+  .search-bar i { color: #4b5563; }
+
+  /* loading spinner */
+  .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #1f2937; border-top-color: #3b82f6; border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Recents call type icons */
+  .rec-incoming { color: #4ade80; }
+  .rec-outgoing { color: #60a5fa; }
+  .rec-missed   { color: #f87171; }
+
+  /* Add contact floating btn */
+  .fab {
+    position: fixed;
+    bottom: 88px;
+    right: 20px;
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: #2563eb;
+    border: none;
+    color: #fff;
+    font-size: 22px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 18px rgba(37,99,235,.5);
+    cursor: pointer;
+    z-index: 50;
+    transition: transform .15s;
+  }
+  .fab:active { transform: scale(.9); }
+</style>
+
+<div class="dialer-wrap">
+
+  <!-- Header -->
+  <div class="dialer-header">
+    <div>
+      <div class="dialer-title">📞 Phone</div>
+      <div class="dialer-sub">CallShield AI • Custom Dialer</div>
+    </div>
+    <button onclick="openAddContactModal()" style="background:#1c1f26;border:none;color:#9ca3af;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;">
+      <i class="fas fa-user-plus"></i>
+    </button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-fav"      onclick="switchTab('fav')">Favourites</button>
+    <button class="tab-btn"        id="tab-recents"  onclick="switchTab('recents')">Recents</button>
+    <button class="tab-btn"        id="tab-contacts" onclick="switchTab('contacts')">Contacts</button>
+  </div>
+
+  <!-- === FAVOURITES / KEYPAD tab === -->
+  <div id="view-fav">
+    <!-- number display -->
+    <div class="num-display" id="numDisplay">
+      <span id="numText" class="display-placeholder">Enter number</span>
+      <button class="backspace-btn" onclick="backspace()" id="backspaceBtn" style="display:none;">
+        <i class="fas fa-backspace"></i>
+      </button>
     </div>
 
-    <!-- Truecaller Search Bar & Instant Identity Card -->
-    <div class="bg-gray-900/95 backdrop-blur-2xl p-4 rounded-2xl border border-gray-800 shadow-lg space-y-3">
-        <div class="relative">
-            <i class="fas fa-search absolute left-4 top-3.5 text-blue-400 text-base"></i>
-            <input type="text" id="truecaller-search" onkeyup="handleTruecallerSearch()" placeholder="Search name, phone number, or identify unknown caller..." class="w-full pl-11 pr-24 py-3 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white focus:border-blue-500 outline-none font-mono">
-            <button onclick="performCallerLookup()" class="absolute right-2 top-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg transition">
-                Lookup ID
-            </button>
-        </div>
-
-        <!-- Dynamic Truecaller Identity Result Card -->
-        <div id="caller-id-card" class="hidden p-4 rounded-xl border bg-gray-950/90 transition-all duration-300">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div id="caller-avatar" class="w-12 h-12 rounded-full bg-blue-600 text-white font-black text-xl flex items-center justify-center shadow-md">
-                        ?
-                    </div>
-                    <div>
-                        <h3 id="caller-name" class="text-base font-bold text-white">Caller Name</h3>
-                        <p id="caller-number" class="text-xs text-gray-400 font-mono">+1 000-000-0000</p>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <span id="caller-badge" class="px-3 py-1 text-xs font-bold rounded-full border inline-block">
-                        🟢 Safe
-                    </span>
-                    <button onclick="reportSpamModal()" class="block text-[11px] text-red-400 hover:text-red-300 font-bold mt-1.5 text-right w-full">
-                        <i class="fas fa-ban"></i> Report Spam
-                    </button>
-                </div>
-            </div>
-        </div>
+    <!-- keypad -->
+    <div class="keypad-grid">
+      <button class="key-btn" onclick="pressKey('1')"><span class="key-num">1</span><span class="key-sub">&nbsp;</span></button>
+      <button class="key-btn" onclick="pressKey('2')"><span class="key-num">2</span><span class="key-sub">ABC</span></button>
+      <button class="key-btn" onclick="pressKey('3')"><span class="key-num">3</span><span class="key-sub">DEF</span></button>
+      <button class="key-btn" onclick="pressKey('4')"><span class="key-num">4</span><span class="key-sub">GHI</span></button>
+      <button class="key-btn" onclick="pressKey('5')"><span class="key-num">5</span><span class="key-sub">JKL</span></button>
+      <button class="key-btn" onclick="pressKey('6')"><span class="key-num">6</span><span class="key-sub">MNO</span></button>
+      <button class="key-btn" onclick="pressKey('7')"><span class="key-num">7</span><span class="key-sub">PQRS</span></button>
+      <button class="key-btn" onclick="pressKey('8')"><span class="key-num">8</span><span class="key-sub">TUV</span></button>
+      <button class="key-btn" onclick="pressKey('9')"><span class="key-num">9</span><span class="key-sub">WXYZ</span></button>
+      <button class="key-btn" onclick="pressKey('*')"><span class="key-num">*</span><span class="key-sub">&nbsp;</span></button>
+      <button class="key-btn" onclick="pressKey('0')"><span class="key-num">0</span><span class="key-sub">+</span></button>
+      <button class="key-btn" onclick="pressKey('#')"><span class="key-num">#</span><span class="key-sub">&nbsp;</span></button>
     </div>
 
-    <!-- Navigation Tabs: Keypad, Contacts, Recents -->
-    <div class="grid grid-cols-3 bg-gray-900/90 backdrop-blur-xl p-1.5 rounded-2xl border border-gray-800 shadow-lg">
-        <button onclick="switchTab('keypad')" id="tab-keypad" class="py-2.5 rounded-xl font-bold text-xs sm:text-sm text-blue-400 bg-blue-600/20 border border-blue-500/30 flex items-center justify-center gap-2 transition">
-            <i class="fas fa-th"></i> Keypad
-        </button>
-        <button onclick="switchTab('contacts')" id="tab-contacts" class="py-2.5 rounded-xl font-bold text-xs sm:text-sm text-gray-400 hover:text-white flex items-center justify-center gap-2 transition">
-            <i class="fas fa-address-book"></i> Contacts
-        </button>
-        <button onclick="switchTab('recents')" id="tab-recents" class="py-2.5 rounded-xl font-bold text-xs sm:text-sm text-gray-400 hover:text-white flex items-center justify-center gap-2 transition">
-            <i class="fas fa-history"></i> Recents Log
-        </button>
+    <!-- call button -->
+    <div class="call-row">
+      <div class="call-btn-placeholder"></div>
+      <button class="call-btn" onclick="initiateCall()">
+        <i class="fas fa-phone"></i>
+      </button>
+      <div class="call-btn-placeholder"></div>
     </div>
 
-    <!-- TAB 1: KEYPAD DIALER -->
-    <div id="view-keypad" class="bg-gray-900/95 backdrop-blur-2xl p-6 rounded-3xl border border-gray-800 shadow-2xl space-y-6">
-        
-        <!-- Phone Number Display with Dynamic Trust Badge -->
-        <div class="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-2 shadow-inner">
-            <div class="flex items-center justify-between">
-                <input type="text" id="phone-display" readonly placeholder="Enter phone number..." class="bg-transparent text-2xl sm:text-3xl font-mono font-black text-center text-white tracking-widest outline-none w-full">
-                <button onclick="backspace()" class="text-gray-400 hover:text-red-400 p-2 text-xl transition">
-                    <i class="fas fa-backspace"></i>
-                </button>
-            </div>
-            <div id="caller-trust-badge" class="hidden text-center text-xs font-bold py-1 px-3 rounded-full mx-auto w-fit border">
-                <span id="caller-trust-text">Checking Trust Badge...</span>
-            </div>
-        </div>
+    <!-- Favorites list (shown when keypad is empty) -->
+    <div id="fav-list" class="contact-list"></div>
+  </div>
 
-        <!-- Tactile 3x4 Dialpad Buttons -->
-        <div class="grid grid-cols-3 gap-3 sm:gap-4 max-w-xs mx-auto">
-            <button onclick="pressKey('1')" class="w-20 h-20 sm:w-22 sm:h-22 mx-auto bg-gray-800/90 hover:bg-blue-600/40 text-white font-extrabold text-2xl rounded-full border border-gray-700/80 shadow-md active:scale-95 transition flex flex-col items-center justify-center">
-                <span>1</span><span class="text-[9px] text-gray-500 font-normal">~</span>
-            </button>
-            <button onclick="pressKey('2')" class="w-20 h-20 sm:w-22 sm:h-22 mx-auto bg-gray-800/90 hover:bg-blue-600/40 text-white font-extrabold text-2xl rounded-full border border-gray-700/80 shadow-md active:scale-95 transition flex flex-col items-center justify-center">
-                <span>2</span><span class="text-[9px] text-gray-400 font-normal">ABC</span>
-            </button>
-            <button onclick="pressKey('3')" class="w-20 h-20 sm:w-22 sm:h-22 mx-auto bg-gray-800/90 hover:bg-blue-600/40 text-white font-extrabold text-2xl rounded-full border border-gray-700/80 shadow-md active:scale-95 transition flex flex-col items-center justify-center">
-                <span>3</span><span class="text-[9px] text-gray-400 font-normal">DEF</span>
-            </button>
-            <button onclick="pressKey('4')" class="w-20 h-20 sm:w-22 sm:h-22 mx-auto bg-gray-800/90 hover:bg-blue-600/40 text-white font-extrabold text-2xl rounded-full border border-gray-700/80 shadow-md active:scale-95 transition flex flex-col items-center justify-center">
-                <span>4</span><span class="text-[9px] text-gray-400 font-normal">GHI</span>
-            </button>
-            <button onclick="pressKey('5')" class="w-20 h-20 sm:w-22 sm:h-22 mx-auto bg-gray-800/90 hover:bg-blue-600/40 text-white font-extrabold text-2xl rounded-full border border-gray-700/80 shadow-md active:scale-95 transition flex flex-col items-center justify-center">
-                <span>5</span><span class="text-[9px] text-gray-400 font-normal">JKL</span>
-            </button>
-            <button onclick="pressKey('6')" class="w-20 h-20 sm:w-22 sm:h-22 mx-auto bg-gray-800/90 hover:bg-blue-600/40 text-white font-extrabold text-2xl rounded-full border border-gray-700/80 shadow-md active:scale-95 transition flex flex-col items-center justify-center">
-                <span>6</span><span class="text-[9px] text-gray-400 font-normal">MNO</span>
-            </button>
-            <button onclick="pressKey('7')" class="w-20 h-20 sm:w-22 sm:h-22 mx-auto bg-gray-800/90 hover:bg-blue-600/40 text-white font-extrabold text-2xl rounded-full border border-gray-700/80 shadow-md active:scale-95 transition flex flex-col items-center justify-center">
-                <span>7</span><span class="text-[9px] text-gray-400 font-normal">PQRS</span>
-            </button>
-            <button onclick="pressKey('8')" class="w-20 h-20 sm:w-22 sm:h-22 mx-auto bg-gray-800/90 hover:bg-blue-600/40 text-white font-extrabold text-2xl rounded-full border border-gray-700/80 shadow-md active:scale-95 transition flex flex-col items-center justify-center">
-                <span>8</span><span class="text-[9px] text-gray-400 font-normal">TUV</span>
-            </button>
-            <button onclick="pressKey('9')" class="w-20 h-20 sm:w-22 sm:h-22 mx-auto bg-gray-800/90 hover:bg-blue-600/40 text-white font-extrabold text-2xl rounded-full border border-gray-700/80 shadow-md active:scale-95 transition flex flex-col items-center justify-center">
-                <span>9</span><span class="text-[9px] text-gray-400 font-normal">WXYZ</span>
-            </button>
-            <button onclick="pressKey('*')" class="w-20 h-20 sm:w-22 sm:h-22 mx-auto bg-gray-800/90 hover:bg-blue-600/40 text-white font-extrabold text-2xl rounded-full border border-gray-700/80 shadow-md active:scale-95 transition flex flex-col items-center justify-center">
-                <span>*</span>
-            </button>
-            <button onclick="pressKey('0')" class="w-20 h-20 sm:w-22 sm:h-22 mx-auto bg-gray-800/90 hover:bg-blue-600/40 text-white font-extrabold text-2xl rounded-full border border-gray-700/80 shadow-md active:scale-95 transition flex flex-col items-center justify-center">
-                <span>0</span><span class="text-[9px] text-gray-400 font-normal">+</span>
-            </button>
-            <button onclick="pressKey('#')" class="w-20 h-20 sm:w-22 sm:h-22 mx-auto bg-gray-800/90 hover:bg-blue-600/40 text-white font-extrabold text-2xl rounded-full border border-gray-700/80 shadow-md active:scale-95 transition flex flex-col items-center justify-center">
-                <span>#</span>
-            </button>
-        </div>
-
-        <!-- Large Glowing Green Call Button -->
-        <div class="flex justify-center pt-2">
-            <button onclick="initiateCall()" class="w-20 h-20 rounded-full bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-white text-3xl shadow-xl shadow-green-500/40 flex items-center justify-center active:scale-90 transition animate-pulse">
-                <i class="fas fa-phone-alt"></i>
-            </button>
-        </div>
-        <p class="text-center text-xs text-gray-400 font-medium">Tap green Call button to place call with Truecaller CallShield Protection</p>
+  <!-- === RECENTS tab === -->
+  <div id="view-recents" style="display:none;">
+    <div class="search-bar">
+      <i class="fas fa-search"></i>
+      <input type="text" id="recentSearch" placeholder="Search recents..." oninput="filterRecents()">
     </div>
-
-    <!-- TAB 2: CONTACTS LIST -->
-    <div id="view-contacts" class="hidden bg-gray-900/95 backdrop-blur-2xl p-5 rounded-3xl border border-gray-800 shadow-2xl space-y-4">
-        <div class="flex justify-between items-center">
-            <h2 class="text-sm font-bold text-gray-300 uppercase tracking-wider">Address Book & Verified Contacts</h2>
-            <button onclick="openAddContactModal()" class="px-3 py-1 bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded-lg text-xs font-bold hover:bg-blue-600/50 transition">
-                + New Contact
-            </button>
-        </div>
-        <div id="contacts-list" class="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
-            <!-- Dynamic Contacts Rendered Here -->
-        </div>
+    <div id="recents-list" class="contact-list">
+      <div style="text-align:center;padding:30px 0;color:#4b5563;">
+        <div class="spinner"></div>
+        <div style="margin-top:10px;font-size:13px;">Loading recents...</div>
+      </div>
     </div>
+  </div>
 
-    <!-- TAB 3: RECENTS LOG -->
-    <div id="view-recents" class="hidden bg-gray-900/95 backdrop-blur-2xl p-5 rounded-3xl border border-gray-800 shadow-2xl space-y-4">
-        <h2 class="text-sm font-bold text-gray-300 uppercase tracking-wider">Recent Calls & Spam History</h2>
-        <div id="recents-list" class="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
-            <!-- Dynamic Recents Rendered Here -->
-        </div>
+  <!-- === CONTACTS tab === -->
+  <div id="view-contacts" style="display:none;">
+    <div class="search-bar">
+      <i class="fas fa-search"></i>
+      <input type="text" id="contactSearch" placeholder="Search contacts..." oninput="filterContacts()">
     </div>
-
-</div>
-
-<!-- Active Call Action Modal -->
-<div id="callModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
-    <div class="bg-gray-900 border border-green-500/40 rounded-3xl max-w-sm w-full p-6 text-center space-y-6 shadow-2xl animate-slide-up">
-        <div class="w-20 h-20 rounded-full bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 mx-auto flex items-center justify-center text-3xl animate-bounce">
-            <i class="fas fa-phone-alt"></i>
-        </div>
-        <div>
-            <h3 class="text-xl font-black text-white" id="modal-target-name">Calling Number...</h3>
-            <p class="text-sm text-emerald-400 font-bold mt-1">🛡️ Truecaller CallShield Protection Active</p>
-        </div>
-
-        <div class="space-y-3">
-            <button onclick="confirmTriggerCall()" class="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white font-extrabold rounded-xl shadow-lg flex items-center justify-center gap-2">
-                <i class="fas fa-satellite-dish"></i> Start Live Call AI Monitor
-            </button>
-            <button onclick="closeCallModal()" class="w-full py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded-xl border border-gray-700">
-                Cancel
-            </button>
-        </div>
+    <div id="contacts-list" class="contact-list">
+      <div style="text-align:center;padding:30px 0;color:#4b5563;">
+        <div class="spinner"></div>
+        <div style="margin-top:10px;font-size:13px;">Loading contacts...</div>
+      </div>
     </div>
+  </div>
+
+</div><!-- /dialer-wrap -->
+
+<!-- ========================================
+     ACTIVE CALL SCREEN (Full-Screen Overlay)
+     ======================================== -->
+<div id="activeCallScreen">
+  <div class="active-call-top">
+    <div class="active-call-label" id="acCallLabel">Outgoing call</div>
+    <div class="active-call-avatar" id="acAvatar">
+      <i class="fas fa-user"></i>
+    </div>
+    <div class="active-call-name"  id="acName">Unknown</div>
+    <div class="active-call-timer" id="acTimer">00:00</div>
+  </div>
+
+  <!-- AI Scam Detection Card -->
+  <div class="scam-card" id="scamCard">
+    <div class="scam-card-header">
+      <i class="fas fa-shield-alt"></i>
+      <span id="scamCardTitle">CallShield AI Analyzing...</span>
+    </div>
+    <div class="scam-card-body" id="scamCardBody">Starting real-time scam detection...</div>
+    <div>
+      <span class="scam-risk-label">Risk: </span>
+      <span class="scam-card-score" id="scamRiskScore">--</span>
+    </div>
+  </div>
+
+  <!-- Live transcript mini -->
+  <div style="width:calc(100% - 32px);margin:12px auto 0;background:#0d1117;border-radius:14px;padding:12px 14px;max-height:110px;overflow-y:auto;" id="acTranscript">
+    <div style="color:#374151;font-size:12px;text-align:center;padding:8px 0;">Listening for speech...</div>
+  </div>
+
+  <!-- Bottom controls -->
+  <div class="active-call-btns">
+    <button class="ac-btn" onclick="toggleMute()">
+      <div class="ac-btn-icon" id="muteIcon"><i class="fas fa-microphone-slash"></i></div>
+      <span id="muteLabel">Mute</span>
+    </button>
+    <button class="ac-btn" onclick="endCall()">
+      <div class="ac-btn-icon red-btn" style="transform:rotate(135deg);font-size:24px;"><i class="fas fa-phone"></i></div>
+      <span>End</span>
+    </button>
+    <button class="ac-btn" onclick="openFullAnalysis()">
+      <div class="ac-btn-icon blue-btn"><i class="fas fa-chart-line"></i></div>
+      <span>Analysis</span>
+    </button>
+  </div>
 </div>
 
 <!-- Add Contact Modal -->
-<div id="addContactModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
-    <div class="bg-gray-900 border border-blue-500/40 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl animate-slide-up">
-        <h3 class="text-lg font-black text-white flex items-center gap-2">
-            <i class="fas fa-user-plus text-blue-400"></i> Add New Contact
-        </h3>
-        <div class="space-y-3 text-left">
-            <div>
-                <label class="text-xs text-gray-400 font-bold">Contact Name</label>
-                <input type="text" id="new-contact-name" placeholder="John Doe" class="w-full px-3 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white focus:border-blue-500 outline-none mt-1">
-            </div>
-            <div>
-                <label class="text-xs text-gray-400 font-bold">Phone Number</label>
-                <input type="text" id="new-contact-number" placeholder="+1 555-0199" class="w-full px-3 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white focus:border-blue-500 outline-none mt-1 font-mono">
-            </div>
-            <div>
-                <label class="text-xs text-gray-400 font-bold">Safety Tag Category</label>
-                <select id="new-contact-category" class="w-full px-3 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white focus:border-blue-500 outline-none mt-1">
-                    <option value="Safe">🟢 Safe Contact</option>
-                    <option value="Verified">🟢 Verified Business</option>
-                    <option value="Suspicious">🟡 Suspicious</option>
-                    <option value="Spam">🔴 Spam / Scam Number</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="flex gap-2 pt-2">
-            <button onclick="submitNewContact()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl shadow-lg transition">
-                Save Contact
-            </button>
-            <button onclick="closeAddContactModal()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded-xl border border-gray-700">
-                Cancel
-            </button>
-        </div>
+<div id="addContactModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10000;align-items:flex-end;justify-content:center;">
+  <div style="background:#111827;border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;max-width:480px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <h3 style="font-size:17px;font-weight:800;color:#fff;"><i class="fas fa-user-plus text-blue-400 mr-2"></i>Add Contact</h3>
+      <button onclick="closeAddContactModal()" style="background:none;border:none;color:#9ca3af;font-size:20px;cursor:pointer;"><i class="fas fa-times"></i></button>
     </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <input id="new-contact-name"   type="text"  placeholder="Full Name"    style="background:#1c1f26;border:1px solid #1f2937;border-radius:12px;padding:12px 14px;color:#fff;font-size:15px;outline:none;width:100%;box-sizing:border-box;">
+      <input id="new-contact-number" type="tel"   placeholder="Phone Number" style="background:#1c1f26;border:1px solid #1f2937;border-radius:12px;padding:12px 14px;color:#fff;font-size:15px;outline:none;width:100%;box-sizing:border-box;font-family:monospace;">
+      <select id="new-contact-category" style="background:#1c1f26;border:1px solid #1f2937;border-radius:12px;padding:12px 14px;color:#fff;font-size:14px;outline:none;width:100%;box-sizing:border-box;">
+        <option value="Safe">🟢 Safe Contact</option>
+        <option value="Verified">✅ Verified Business</option>
+        <option value="Suspicious">🟡 Suspicious</option>
+        <option value="Spam">🔴 Spam / Scam</option>
+      </select>
+      <button onclick="submitNewContact()" style="background:#2563eb;border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;">Save Contact</button>
+    </div>
+  </div>
 </div>
 
 <script>
-    let activeNumber = "";
-    let contactsData = [
-        { name: "Mom", number: "+1 555-0192", category: "Safe" },
-        { name: "Bank Customer Service", number: "+1 800-555-0199", category: "Verified" },
-        { name: "Manager John", number: "+1 555-0143", category: "Safe" },
-        { name: "Tech Support Hotline", number: "+1 555-0188", category: "Suspicious" },
-        { name: "Emergency Services", number: "911", category: "Emergency" }
-    ];
+/* ══════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════ */
+let dialedNumber   = '';
+let activeCallNum  = '';
+let activeCallName = '';
+let allContacts    = [];
+let allRecents     = [];
+let callTimerInt   = null;
+let callSeconds    = 0;
+let isMuted        = false;
+let acRecognition  = null;
+let acFullText     = '';
+let acIsListening  = false;
 
-    let recentsData = [
-        { name: "Bank Customer Service", number: "+1 800-555-0199", time: "10 mins ago", risk: "🟢 Verified Safe (0%)" },
-        { name: "Unknown Caller", number: "+1 888-392-1011", time: "1 hour ago", risk: "🔴 High Scam Risk (92%)" }
-    ];
+/* ══════════════════════════════════════════════
+   TABS
+══════════════════════════════════════════════ */
+function switchTab(t) {
+  ['fav','recents','contacts'].forEach(id => {
+    document.getElementById('view-' + id).style.display = 'none';
+    document.getElementById('tab-' + id).classList.remove('active');
+  });
+  document.getElementById('view-' + t).style.display = 'block';
+  document.getElementById('tab-' + t).classList.add('active');
+  if (t === 'contacts') loadContacts();
+  if (t === 'recents')  loadRecents();
+}
 
-    function switchTab(tabName) {
-        document.getElementById('view-keypad').classList.add('hidden');
-        document.getElementById('view-contacts').classList.add('hidden');
-        document.getElementById('view-recents').classList.add('hidden');
+/* ══════════════════════════════════════════════
+   KEYPAD
+══════════════════════════════════════════════ */
+function pressKey(k) {
+  dialedNumber += k;
+  updateNumDisplay();
+}
+function backspace() {
+  dialedNumber = dialedNumber.slice(0, -1);
+  updateNumDisplay();
+}
+function updateNumDisplay() {
+  const span = document.getElementById('numText');
+  const back = document.getElementById('backspaceBtn');
+  const favList = document.getElementById('fav-list');
+  if (dialedNumber) {
+    span.textContent = formatPhone(dialedNumber);
+    span.classList.remove('display-placeholder');
+    back.style.display = 'block';
+    favList.style.display = 'none';
+  } else {
+    span.textContent = 'Enter number';
+    span.classList.add('display-placeholder');
+    back.style.display = 'none';
+    favList.style.display = 'block';
+    renderFavorites();
+  }
+}
+function formatPhone(n) {
+  if (n.length <= 5) return n;
+  if (n.length <= 10) return n.slice(0,5) + ' ' + n.slice(5);
+  return n.slice(0,5) + ' ' + n.slice(5,10) + ' ' + n.slice(10);
+}
 
-        document.getElementById('tab-keypad').className = "py-2.5 rounded-xl font-bold text-xs sm:text-sm text-gray-400 hover:text-white flex items-center justify-center gap-2 transition";
-        document.getElementById('tab-contacts').className = "py-2.5 rounded-xl font-bold text-xs sm:text-sm text-gray-400 hover:text-white flex items-center justify-center gap-2 transition";
-        document.getElementById('tab-recents').className = "py-2.5 rounded-xl font-bold text-xs sm:text-sm text-gray-400 hover:text-white flex items-center justify-center gap-2 transition";
-
-        if (tabName === 'keypad') {
-            document.getElementById('view-keypad').classList.remove('hidden');
-            document.getElementById('tab-keypad').className = "py-2.5 rounded-xl font-bold text-xs sm:text-sm text-blue-400 bg-blue-600/20 border border-blue-500/30 flex items-center justify-center gap-2 transition";
-        } else if (tabName === 'contacts') {
-            document.getElementById('view-contacts').classList.remove('hidden');
-            document.getElementById('tab-contacts').className = "py-2.5 rounded-xl font-bold text-xs sm:text-sm text-blue-400 bg-blue-600/20 border border-blue-500/30 flex items-center justify-center gap-2 transition";
-            loadContacts();
-        } else if (tabName === 'recents') {
-            document.getElementById('view-recents').classList.remove('hidden');
-            document.getElementById('tab-recents').className = "py-2.5 rounded-xl font-bold text-xs sm:text-sm text-blue-400 bg-blue-600/20 border border-blue-500/30 flex items-center justify-center gap-2 transition";
-            renderRecents();
-        }
+/* ══════════════════════════════════════════════
+   CONTACTS
+══════════════════════════════════════════════ */
+async function loadContacts() {
+  // 1. Try Android native bridge first
+  if (window.AndroidContactsBridge && typeof window.AndroidContactsBridge.getContacts === 'function') {
+    try {
+      const raw = window.AndroidContactsBridge.getContacts();
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.length > 0) {
+        allContacts = parsed;
+        renderContacts(allContacts);
+        return;
+      }
+    } catch(e) {}
+  }
+  // 2. Fallback: API
+  try {
+    const res = await fetch('/api/get_contacts');
+    const data = await res.json();
+    if (data.success && data.contacts && data.contacts.length > 0) {
+      allContacts = data.contacts;
+    } else {
+      allContacts = getSampleContacts();
     }
+  } catch(e) {
+    allContacts = getSampleContacts();
+  }
+  renderContacts(allContacts);
+}
 
-    function pressKey(key) {
-        const display = document.getElementById('phone-display');
-        display.value += key;
-        checkCallerTrust();
+function getSampleContacts() {
+  return [
+    { name: "Aai",            number: "9876543210", category: "Safe"      },
+    { name: "Baba",           number: "9123456789", category: "Safe"      },
+    { name: "Bank Helpline",  number: "18001234567",category: "Verified"  },
+    { name: "Rahul Sharma",   number: "9988776655", category: "Safe"      },
+    { name: "Unknown Caller", number: "8877665544", category: "Suspicious"},
+    { name: "Spam Number",    number: "9090909090", category: "Spam"      },
+  ];
+}
+
+function renderContacts(list) {
+  const container = document.getElementById('contacts-list');
+  if (!list || list.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:#4b5563;font-size:14px;">No contacts found.<br><span style="font-size:12px;">Tap + to add a contact.</span></div>';
+    return;
+  }
+  // Sort alphabetically
+  const sorted = [...list].sort((a,b) => a.name.localeCompare(b.name));
+  let html = '';
+  let lastLetter = '';
+  sorted.forEach(c => {
+    const letter = c.name.charAt(0).toUpperCase();
+    if (letter !== lastLetter) {
+      html += `<div style="font-size:12px;font-weight:700;color:#4b5563;padding:8px 12px 2px;">${letter}</div>`;
+      lastLetter = letter;
     }
+    const badge = getBadge(c.category);
+    const avatarColor = getAvatarColor(c.name);
+    html += `
+      <div class="contact-item" onclick="initiateCallTo('${escJs(c.number)}','${escJs(c.name)}')">
+        <div class="contact-avatar" style="background:${avatarColor};">${letter}</div>
+        <div class="contact-info">
+          <div class="contact-name">${escHtml(c.name)} ${badge}</div>
+          <div class="contact-num">${c.number}</div>
+        </div>
+        <button class="contact-call-btn" onclick="event.stopPropagation();initiateCallTo('${escJs(c.number)}','${escJs(c.name)}')">
+          <i class="fas fa-phone"></i>
+        </button>
+      </div>`;
+  });
+  container.innerHTML = html;
+}
 
-    function backspace() {
-        const display = document.getElementById('phone-display');
-        display.value = display.value.slice(0, -1);
-        checkCallerTrust();
+function filterContacts() {
+  const q = document.getElementById('contactSearch').value.toLowerCase();
+  const filtered = allContacts.filter(c => c.name.toLowerCase().includes(q) || c.number.includes(q));
+  renderContacts(filtered);
+}
+
+/* ══════════════════════════════════════════════
+   RECENTS
+══════════════════════════════════════════════ */
+async function loadRecents() {
+  try {
+    const res = await fetch('/api/get_recents');
+    const data = await res.json();
+    if (data.success && data.recents && data.recents.length > 0) {
+      allRecents = data.recents;
+    } else {
+      allRecents = getSampleRecents();
     }
+  } catch(e) {
+    allRecents = getSampleRecents();
+  }
+  renderRecents(allRecents);
+}
 
-    async function handleTruecallerSearch() {
-        const query = document.getElementById('truecaller-search').value.trim();
-        if (query.length >= 3) {
-            performCallerLookup(query);
-        }
+function getSampleRecents() {
+  return [
+    { name: "Aai",            number: "9876543210", time: "2 min ago",  risk: "🟢 Safe (2%)",         type: "incoming"  },
+    { name: "Unknown",        number: "8877665544", time: "1 hour ago", risk: "🔴 Scam (87%)",         type: "missed"    },
+    { name: "Bank Helpline",  number: "18001234567",time: "Yesterday",  risk: "🟢 Verified Safe (0%)", type: "outgoing"  },
+    { name: "Rahul Sharma",   number: "9988776655", time: "2 days ago", risk: "🟢 Safe (5%)",          type: "outgoing"  },
+  ];
+}
+
+function renderRecents(list) {
+  const container = document.getElementById('recents-list');
+  if (!list || list.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:#4b5563;font-size:14px;">No recent calls.</div>';
+    return;
+  }
+  let html = '';
+  list.forEach(r => {
+    const typeIcon = r.type === 'incoming' ? 'fa-phone-incoming rec-incoming' :
+                     r.type === 'missed'   ? 'fa-phone-missed rec-missed'     : 'fa-phone-outgoing rec-outgoing';
+    const avatarColor = getAvatarColor(r.name);
+    const letter = r.name.charAt(0).toUpperCase();
+    html += `
+      <div class="contact-item" onclick="initiateCallTo('${escJs(r.number)}','${escJs(r.name)}')">
+        <div class="contact-avatar" style="background:${avatarColor};">${letter}</div>
+        <div class="contact-info">
+          <div class="contact-name">${escHtml(r.name)}</div>
+          <div class="contact-num"><i class="fas ${typeIcon}" style="font-size:10px;margin-right:4px;"></i>${r.number} · ${r.time}</div>
+          <div style="font-size:11px;margin-top:3px;color:#9ca3af;">${r.risk}</div>
+        </div>
+        <button class="contact-call-btn" onclick="event.stopPropagation();initiateCallTo('${escJs(r.number)}','${escJs(r.name)}')">
+          <i class="fas fa-phone"></i>
+        </button>
+      </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function filterRecents() {
+  const q = document.getElementById('recentSearch').value.toLowerCase();
+  const filtered = allRecents.filter(r => r.name.toLowerCase().includes(q) || r.number.includes(q));
+  renderRecents(filtered);
+}
+
+/* ══════════════════════════════════════════════
+   FAVORITES
+══════════════════════════════════════════════ */
+function renderFavorites() {
+  const container = document.getElementById('fav-list');
+  // Show top 5 safe contacts as favorites
+  const favs = allContacts.filter(c => c.category === 'Safe' || c.category === 'Verified').slice(0,5);
+  if (favs.length === 0 && allContacts.length === 0) {
+    loadContacts().then(() => {
+      const f2 = allContacts.filter(c => c.category === 'Safe' || c.category === 'Verified').slice(0,5);
+      _renderFavList(f2, container);
+    });
+    return;
+  }
+  _renderFavList(favs, container);
+}
+function _renderFavList(favs, container) {
+  if (favs.length === 0) { container.innerHTML = ''; return; }
+  let html = '<div style="font-size:12px;font-weight:700;color:#4b5563;padding:14px 12px 4px;">⭐ Favourites</div>';
+  favs.forEach(c => {
+    const letter = c.name.charAt(0).toUpperCase();
+    const avatarColor = getAvatarColor(c.name);
+    html += `
+      <div class="contact-item" onclick="initiateCallTo('${escJs(c.number)}','${escJs(c.name)}')">
+        <div class="contact-avatar" style="background:${avatarColor};">${letter}</div>
+        <div class="contact-info">
+          <div class="contact-name">${escHtml(c.name)} <span class="fav-star">★</span></div>
+          <div class="contact-num">${c.number}</div>
+        </div>
+        <button class="contact-call-btn" onclick="event.stopPropagation();initiateCallTo('${escJs(c.number)}','${escJs(c.name)}')">
+          <i class="fas fa-phone"></i>
+        </button>
+      </div>`;
+  });
+  container.innerHTML = html;
+}
+
+/* ══════════════════════════════════════════════
+   CALLING LOGIC
+══════════════════════════════════════════════ */
+function initiateCall() {
+  const num = dialedNumber.trim();
+  if (!num) { alert('Please enter a phone number first.'); return; }
+  const matched = allContacts.find(c => c.number.replace(/\D/g,'') === num.replace(/\D/g,''));
+  const name = matched ? matched.name : 'Unknown';
+  initiateCallTo(num, name);
+}
+
+function initiateCallTo(number, name) {
+  activeCallNum  = number;
+  activeCallName = name || 'Unknown';
+
+  // Place actual call
+  if (window.AndroidContactsBridge && typeof window.AndroidContactsBridge.makePhoneCall === 'function') {
+    window.AndroidContactsBridge.makePhoneCall(number);
+  } else {
+    window.open('tel:' + number, '_self');
+  }
+
+  // Show our active call screen
+  showActiveCallScreen(number, name);
+}
+
+/* ══════════════════════════════════════════════
+   ACTIVE CALL SCREEN
+══════════════════════════════════════════════ */
+function showActiveCallScreen(number, name) {
+  const screen = document.getElementById('activeCallScreen');
+  document.getElementById('acName').textContent = name || number;
+  document.getElementById('acCallLabel').textContent = 'Outgoing call';
+  const letter = (name || number).charAt(0).toUpperCase();
+  document.getElementById('acAvatar').innerHTML = `<span style="font-size:42px;font-weight:800;color:#fff;">${letter}</span>`;
+  document.getElementById('acTimer').textContent = '00:00';
+  document.getElementById('scamCardTitle').textContent = '🛡️ CallShield AI Analyzing...';
+  document.getElementById('scamCardBody').textContent = 'Starting real-time scam detection...';
+  document.getElementById('scamRiskScore').textContent = '--';
+  document.getElementById('acTranscript').innerHTML = '<div style="color:#374151;font-size:12px;text-align:center;padding:8px 0;">Listening for speech...</div>';
+  document.getElementById('scamCard').className = 'scam-card';
+
+  screen.classList.add('visible');
+  callSeconds = 0;
+  callTimerInt = setInterval(() => {
+    callSeconds++;
+    const m = String(Math.floor(callSeconds/60)).padStart(2,'0');
+    const s = String(callSeconds % 60).padStart(2,'0');
+    document.getElementById('acTimer').textContent = `${m}:${s}`;
+  }, 1000);
+
+  // Start listening after 1s
+  setTimeout(startActiveCallListening, 1000);
+}
+
+function startActiveCallListening() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+  acFullText = '';
+  acRecognition = new SR();
+  acRecognition.continuous = true;
+  acRecognition.interimResults = true;
+  acRecognition.lang = 'hi-IN';
+  acIsListening = true;
+
+  acRecognition.onresult = (event) => {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const text = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        acFullText += text + ' ';
+        addToAcTranscript(text);
+        analyzeForActiveCall(acFullText);
+      }
     }
-
-    async function performCallerLookup(searchNum) {
-        const num = searchNum || document.getElementById('truecaller-search').value.trim();
-        if (!num) return;
-
-        try {
-            const res = await fetch(`/api/caller_lookup?number=${encodeURIComponent(num)}`);
-            const data = await res.json();
-            if (data.success && data.caller) {
-                const c = data.caller;
-                document.getElementById('caller-id-card').classList.remove('hidden');
-                document.getElementById('caller-name').textContent = c.name;
-                document.getElementById('caller-number').textContent = c.number;
-                document.getElementById('caller-avatar').textContent = c.name.charAt(0).toUpperCase();
-
-                const badge = document.getElementById('caller-badge');
-                badge.textContent = c.badge;
-                if (c.status === 'Safe') {
-                    badge.className = "px-3 py-1 text-xs font-bold rounded-full border bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-                } else if (c.status === 'Suspicious') {
-                    badge.className = "px-3 py-1 text-xs font-bold rounded-full border bg-amber-500/20 text-amber-400 border-amber-500/30";
-                } else {
-                    badge.className = "px-3 py-1 text-xs font-bold rounded-full border bg-red-500/20 text-red-400 border-red-500/30";
-                }
-            }
-        } catch(e) {}
+  };
+  acRecognition.onerror = (e) => {
+    if (acIsListening && e.error !== 'not-allowed') {
+      setTimeout(() => { try { acRecognition.start(); } catch(ex){} }, 300);
     }
-
-    function checkCallerTrust() {
-        const display = document.getElementById('phone-display');
-        const badge = document.getElementById('caller-trust-badge');
-        const text = document.getElementById('caller-trust-text');
-        const num = display.value.trim();
-
-        if (!num) {
-            badge.classList.add('hidden');
-            return;
-        }
-
-        badge.classList.remove('hidden');
-        const matched = contactsData.find(c => c.number.replace(/\D/g,'') === num.replace(/\D/g,'') || num.includes(c.number));
-        if (matched) {
-            if (matched.category === 'Verified' || matched.category === 'Safe') {
-                badge.className = "text-center text-xs font-bold py-1 px-3 rounded-full mx-auto w-fit border bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-                text.textContent = `🟢 Verified Safe Contact: ${matched.name}`;
-            } else if (matched.category === 'Suspicious') {
-                badge.className = "text-center text-xs font-bold py-1 px-3 rounded-full mx-auto w-fit border bg-amber-500/20 text-amber-400 border-amber-500/30";
-                text.textContent = `🟡 Flagged Suspicious Contact: ${matched.name}`;
-            } else {
-                badge.className = "text-center text-xs font-bold py-1 px-3 rounded-full mx-auto w-fit border bg-red-500/20 text-red-400 border-red-500/30";
-                text.textContent = `🔴 Spam / Scam Warning: ${matched.name}`;
-            }
-        } else {
-            badge.className = "text-center text-xs font-bold py-1 px-3 rounded-full mx-auto w-fit border bg-blue-500/20 text-blue-400 border-blue-500/30";
-            text.textContent = `ℹ️ Unknown Number — Truecaller CallShield Protection`;
-        }
+  };
+  acRecognition.onend = () => {
+    if (acIsListening) {
+      setTimeout(() => { try { acRecognition.start(); } catch(ex){} }, 200);
     }
+  };
+  try { acRecognition.start(); } catch(e){}
+}
 
-    function initiateCall(numberToCall) {
-        const display = document.getElementById('phone-display');
-        const num = numberToCall || display.value.trim();
-        if (!num) {
-            alert("Please enter or select a phone number first.");
-            return;
-        }
-        activeNumber = num;
-        confirmTriggerCall();
+function addToAcTranscript(text) {
+  const area = document.getElementById('acTranscript');
+  const p = document.createElement('div');
+  p.style.cssText = 'font-size:12px;color:#9ca3af;margin-bottom:4px;line-height:1.5;';
+  p.textContent = text;
+  area.appendChild(p);
+  area.scrollTop = area.scrollHeight;
+}
+
+async function analyzeForActiveCall(text) {
+  if (!text || text.trim().length < 3) return;
+  try {
+    const res = await fetch('/api/analyze_live', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript: text })
+    });
+    const data = await res.json();
+    if (data.success) updateScamCard(data);
+  } catch(e) {}
+}
+
+function updateScamCard(data) {
+  const score = Math.round(data.fraud_score || 0);
+  const level = data.risk_level || 'Safe';
+  const card  = document.getElementById('scamCard');
+  const title = document.getElementById('scamCardTitle');
+  const body  = document.getElementById('scamCardBody');
+  const scoreEl = document.getElementById('scamRiskScore');
+
+  scoreEl.textContent = level.toUpperCase();
+
+  if (score >= 60) {
+    card.className  = 'scam-card risk-high';
+    title.innerHTML = '⚠️ Potential scam detected';
+    body.textContent = data.warning_message || 'Suspicious banking / OTP request detected';
+    scoreEl.textContent = 'HIGH (' + score + '%)';
+  } else if (score >= 35) {
+    card.className  = 'scam-card risk-med';
+    title.innerHTML = '⚠️ Suspicious activity';
+    body.textContent = data.warning_message || 'Some suspicious patterns detected';
+    scoreEl.textContent = 'MEDIUM (' + score + '%)';
+  } else {
+    card.className  = 'scam-card risk-safe';
+    title.innerHTML = '✅ Call appears safe';
+    body.textContent = 'No scam patterns detected so far.';
+    scoreEl.textContent = 'LOW (' + score + '%)';
+  }
+}
+
+function endCall() {
+  acIsListening = false;
+  if (acRecognition) { try { acRecognition.stop(); } catch(e){} acRecognition = null; }
+  clearInterval(callTimerInt);
+
+  // Save call record
+  if (acFullText.trim()) {
+    fetch('/api/save_live_call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript: acFullText, phone: activeCallNum, name: activeCallName })
+    }).catch(()=>{});
+  }
+
+  document.getElementById('activeCallScreen').classList.remove('visible');
+  // Add to recents
+  allRecents.unshift({ name: activeCallName, number: activeCallNum, time: 'Just now', risk: '🔵 Analyzed', type: 'outgoing' });
+  dialedNumber = '';
+  updateNumDisplay();
+}
+
+function toggleMute() {
+  isMuted = !isMuted;
+  const icon  = document.getElementById('muteIcon');
+  const label = document.getElementById('muteLabel');
+  if (isMuted) {
+    icon.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+    icon.style.background = '#374151';
+    label.textContent = 'Unmute';
+    if (acRecognition) { try { acRecognition.stop(); } catch(e){} }
+  } else {
+    icon.innerHTML = '<i class="fas fa-microphone"></i>';
+    icon.style.background = '#1c1f26';
+    label.textContent = 'Mute';
+    if (acRecognition && acIsListening) { try { acRecognition.start(); } catch(e){} }
+  }
+}
+
+function openFullAnalysis() {
+  window.location.href = '/modules/live-call?phone=' + encodeURIComponent(activeCallNum) + '&autostart=true';
+}
+
+/* ══════════════════════════════════════════════
+   ADD CONTACT MODAL
+══════════════════════════════════════════════ */
+function openAddContactModal() {
+  const m = document.getElementById('addContactModal');
+  m.style.display = 'flex';
+}
+function closeAddContactModal() {
+  document.getElementById('addContactModal').style.display = 'none';
+}
+async function submitNewContact() {
+  const name     = document.getElementById('new-contact-name').value.trim();
+  const number   = document.getElementById('new-contact-number').value.trim();
+  const category = document.getElementById('new-contact-category').value;
+  if (!name || !number) { alert('Please enter both name and phone number.'); return; }
+  try {
+    const res = await fetch('/api/add_contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, number, category })
+    });
+    const data = await res.json();
+    if (data.success) {
+      allContacts.push({ name, number, category });
+      closeAddContactModal();
+      document.getElementById('new-contact-name').value = '';
+      document.getElementById('new-contact-number').value = '';
+      alert('Contact saved!');
+      renderContacts(allContacts);
     }
+  } catch(e) {
+    allContacts.push({ name, number, category });
+    closeAddContactModal();
+    alert('Contact saved locally!');
+  }
+}
 
-    function testAutoDialAndRecord() {
-        const testNum = "+1 800-555-0199";
-        activeNumber = testNum;
-        alert("⚡ Triggering Auto-Dial & Real-Time AI Voice Monitor Test for " + testNum);
-        confirmTriggerCall();
-    }
+/* ══════════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════════ */
+function getBadge(cat) {
+  if (!cat) return '';
+  if (cat === 'Spam' || cat === 'Scam') return '<span class="badge-spam">🔴</span>';
+  if (cat === 'Suspicious')             return '<span class="badge-warn">🟡</span>';
+  if (cat === 'Verified')               return '<span class="badge-safe">✅</span>';
+  return '<span class="badge-safe">🟢</span>';
+}
+const AVATAR_COLORS = ['#1d4ed8','#7c3aed','#0891b2','#065f46','#92400e','#9f1239','#1e40af','#4f46e5'];
+function getAvatarColor(name) { return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]; }
+function escHtml(t) { const d=document.createElement('div');d.textContent=t;return d.innerHTML; }
+function escJs(t)   { return t.replace(/'/g,"\\'").replace(/"/g,'\\"'); }
 
-    function confirmTriggerCall() {
-        if (window.AndroidContactsBridge && typeof window.AndroidContactsBridge.makePhoneCall === 'function') {
-            window.AndroidContactsBridge.makePhoneCall(activeNumber);
-        } else {
-            window.open(`tel:${activeNumber}`, '_self');
-        }
+/* ══════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  loadContacts();   // pre-load contacts in background
+  renderFavorites();
 
-        setTimeout(() => {
-            window.location.href = `/modules/live-call?phone=${encodeURIComponent(activeNumber)}&autostart=true`;
-        }, 600);
-    }
-
-    function closeCallModal() {
-        document.getElementById('callModal').classList.add('hidden');
-        document.getElementById('callModal').classList.remove('flex');
-    }
-
-    function openAddContactModal() {
-        document.getElementById('addContactModal').classList.remove('hidden');
-        document.getElementById('addContactModal').classList.add('flex');
-    }
-
-    function closeAddContactModal() {
-        document.getElementById('addContactModal').classList.add('hidden');
-        document.getElementById('addContactModal').classList.remove('flex');
-    }
-
-    async function submitNewContact() {
-        const name = document.getElementById('new-contact-name').value.trim();
-        const number = document.getElementById('new-contact-number').value.trim();
-        const category = document.getElementById('new-contact-category').value;
-
-        if (!name || !number) {
-            alert('Please enter both name and phone number.');
-            return;
-        }
-
-        try {
-            const res = await fetch('/api/add_contact', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, number, category })
-            });
-            const data = await res.json();
-            if (data.success) {
-                closeAddContactModal();
-                loadContacts();
-                alert('Contact saved successfully to Truecaller database!');
-            }
-        } catch(e) {}
-    }
-
-    async function reportSpamModal() {
-        const num = document.getElementById('caller-number').textContent;
-        const name = document.getElementById('caller-name').textContent;
-        if (confirm(`Are you sure you want to report ${num} as Spam/Scam to Truecaller database?`)) {
-            try {
-                const res = await fetch('/api/report_spam', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ number: num, name: name, category: 'Spam' })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert(`Number ${num} has been reported as Spam!`);
-                    performCallerLookup(num);
-                }
-            } catch(e) {}
-        }
-    }
-
-    async function loadContacts() {
-        if (window.AndroidContactsBridge && typeof window.AndroidContactsBridge.getContacts === 'function') {
-            try {
-                const nativeStr = window.AndroidContactsBridge.getContacts();
-                const parsed = JSON.parse(nativeStr);
-                if (parsed && parsed.length > 0) {
-                    contactsData = parsed;
-                    renderContacts(contactsData);
-                    return;
-                }
-            } catch (e) {}
-        }
-        try {
-            const res = await fetch('/api/get_contacts');
-            const data = await res.json();
-            if (data.success && data.contacts && data.contacts.length > 0) {
-                contactsData = data.contacts;
-            }
-        } catch(e) {}
-        renderContacts(contactsData);
-    }
-
-    function renderContacts(list) {
-        const container = document.getElementById('contacts-list');
-        container.innerHTML = '';
-        if (list.length === 0) {
-            container.innerHTML = `<div class="text-center py-6 text-gray-500 text-sm">No contacts found.</div>`;
-            return;
-        }
-        list.forEach(c => {
-            const category = c.category || 'Safe';
-            let badgeHtml = '<span class="text-[10px] text-emerald-400 font-bold">🟢 Safe</span>';
-            if (category === 'Suspicious') badgeHtml = '<span class="text-[10px] text-amber-400 font-bold">🟡 Suspicious</span>';
-            if (category === 'Spam' || category === 'Scam') badgeHtml = '<span class="text-[10px] text-red-400 font-bold">🔴 Spam</span>';
-
-            const item = document.createElement('div');
-            item.className = "p-3.5 bg-gray-950/80 border border-gray-800 rounded-2xl flex items-center justify-between";
-            item.innerHTML = `
-                <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-black text-white shadow-md">
-                        ${c.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                        <h4 class="text-sm font-bold text-white flex items-center gap-1.5">${c.name} ${badgeHtml}</h4>
-                        <p class="text-xs text-gray-400 font-mono">${c.number}</p>
-                    </div>
-                </div>
-                <button onclick="initiateCall('${c.number}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition">
-                    <i class="fas fa-phone-alt"></i> CALL
-                </button>
-            `;
-            container.appendChild(item);
-        });
-    }
-
-    async function renderRecents() {
-        const container = document.getElementById('recents-list');
-        try {
-            const res = await fetch('/api/get_recents');
-            const data = await res.json();
-            if (data.success && data.recents && data.recents.length > 0) {
-                recentsData = data.recents;
-            }
-        } catch(e) {}
-        
-        container.innerHTML = '';
-        recentsData.forEach(r => {
-            const item = document.createElement('div');
-            item.className = "p-3.5 bg-gray-950/80 border border-gray-800 rounded-2xl flex items-center justify-between";
-            item.innerHTML = `
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center text-blue-400">
-                        <i class="fas fa-phone-incoming"></i>
-                    </div>
-                    <div>
-                        <h4 class="text-sm font-bold text-white">${r.name}</h4>
-                        <p class="text-xs text-gray-400 font-mono">${r.number} • ${r.time}</p>
-                        <p class="text-[11px] font-bold text-amber-400 mt-0.5">${r.risk}</p>
-                    </div>
-                </div>
-                <button onclick="initiateCall('${r.number}')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-1">
-                    <i class="fas fa-phone-alt"></i> Call
-                </button>
-            `;
-            container.appendChild(item);
-        });
-    }
-
-    function filterContacts() {
-        const q = document.getElementById('contact-search').value.toLowerCase();
-        const filtered = contactsData.filter(c => c.name.toLowerCase().includes(q) || c.number.includes(q));
-        renderContacts(filtered);
-    }
+  // If opened via CallReceiver with autostart=true
+  const params = new URLSearchParams(window.location.search);
+  const phone  = params.get('phone');
+  const auto   = params.get('autostart');
+  if (phone && auto === 'true') {
+    const name = params.get('name') || 'Unknown Caller';
+    setTimeout(() => showActiveCallScreen(phone, name), 400);
+  }
+});
 </script>
 {% endblock %}
