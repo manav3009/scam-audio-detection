@@ -619,6 +619,19 @@ function filterContacts() {
    RECENTS
 ══════════════════════════════════════════════ */
 async function loadRecents() {
+  // 1. Try real Android call log first
+  if (window.AndroidContactsBridge && typeof window.AndroidContactsBridge.getCallLogs === 'function') {
+    try {
+      const raw = window.AndroidContactsBridge.getCallLogs();
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.length > 0) {
+        allRecents = parsed;
+        renderRecents(allRecents);
+        return;
+      }
+    } catch(e) {}
+  }
+  // 2. Fallback: API recents
   try {
     const res = await fetch('/api/get_recents');
     const data = await res.json();
