@@ -761,36 +761,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (nativemic === 'true') {
         // Native Android app is handling the microphone!
-        addSystemMessage('🎙️ Android OS Native Microphone active. Zero-click listening enabled.');
-        document.getElementById('startRecordBtn').innerHTML = '<i class="fas fa-satellite-dish mr-2 animate-pulse"></i>Native Listen Active';
+        addSystemMessage('🎙️ Zero-Click Call Monitoring Active — Automatically listening...');
+        document.getElementById('startRecordBtn').innerHTML = '<i class="fas fa-satellite-dish mr-2 animate-pulse"></i>Auto Listening Active';
         document.getElementById('startRecordBtn').classList.replace('from-green-600', 'from-blue-600');
         document.getElementById('startRecordBtn').classList.replace('to-green-700', 'to-blue-700');
-        return; // Skip HTML5 speech recognition autostart
     }
 
-    // Auto-start zero-click audio recognition on live call connect
-    if (autostart === 'true' || phone) {
-        addSystemMessage('⏳ Initializing auto-listening for live call...');
-        
-        // Try immediately after a short delay
-        setTimeout(() => {
-            if (!isRecording) startListening();
-        }, 800);
-        
-        // Aggressive fallback: Keep trying every 1.5 seconds until it starts
-        const autoStartInterval = setInterval(() => {
-            if (isRecording) {
-                clearInterval(autoStartInterval);
-                console.log("Autostart successful.");
-            } else {
-                console.log("Retrying autostart...");
-                startListening();
-            }
-        }, 1500);
-        
-        // Stop retrying after 15 seconds to prevent infinite loops if permission is denied
-        setTimeout(() => { clearInterval(autoStartInterval); }, 15000);
-    }
+    // Auto-start zero-click audio recognition on live call connect ALWAYS
+    addSystemMessage('⏳ Starting automatic speech recognition for live call...');
+    setTimeout(() => {
+        if (!isRecording) startListening();
+    }, 500);
+    
+    // Fallback retry loop to ensure microphone starts automatically without clicking any button
+    const autoStartInterval = setInterval(() => {
+        if (isRecording) {
+            clearInterval(autoStartInterval);
+            console.log("Autostart successful.");
+        } else {
+            console.log("Retrying automatic mic start...");
+            startListening();
+        }
+    }, 1200);
+    
+    setTimeout(() => { clearInterval(autoStartInterval); }, 12000);
 });
 
 document.getElementById('stopRecordBtn').addEventListener('click', stopRecording);
