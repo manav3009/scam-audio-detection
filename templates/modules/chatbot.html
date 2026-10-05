@@ -236,15 +236,48 @@ async function sendMessage() {
         });
         
         const data = await response.json();
-        
+        let botText = (data && data.response) ? data.response : '';
+
+        // Universal AI Fallback: If default response was returned, enrich with live knowledge or math!
+        if (botText.includes('I can answer questions about cyber safety') || !botText) {
+            // 1. Math calculation
+            try {
+                const cleanedMath = message.replace(/[^0-9+\-*/.() ]/g, '').trim();
+                if (cleanedMath && /[+\-*/]/.test(cleanedMath)) {
+                    const mathRes = Function('"use strict";return (' + cleanedMath + ')')();
+                    if (typeof mathRes === 'number' && !isNaN(mathRes)) {
+                        botText = `🔢 **Calculation Result:**\n\n\`${cleanedMath}\` = **${mathRes}**`;
+                    }
+                }
+            } catch(e) {}
+
+            // 2. Live Wikipedia encyclopedia search for general questions
+            if (botText.includes('I can answer questions about cyber safety') || !botText) {
+                try {
+                    const cleanTerm = message.toLowerCase()
+                        .replace(/^(what is|who is|tell me about|explain|define|how does|what are)\s+/i, '')
+                        .replace(/[?.!]/g, '').trim();
+                    if (cleanTerm.length > 1) {
+                        const wikiRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(cleanTerm)}`);
+                        if (wikiRes.ok) {
+                            const wikiData = await wikiRes.json();
+                            if (wikiData.extract && !wikiData.extract.includes('may refer to:')) {
+                                botText = `💡 **${wikiData.title}**\n\n${wikiData.extract}`;
+                            }
+                        }
+                    }
+                } catch(e) {}
+            }
+        }
+
         // Remove typing indicator
         removeTypingIndicator(typingId);
         
         // Add bot response
-        displayBotMessage(data.response);
+        displayBotMessage(botText || data.response);
         
         // Save to history
-        chatHistory.push({ role: 'assistant', content: data.response, timestamp: new Date().toISOString() });
+        chatHistory.push({ role: 'assistant', content: botText || data.response, timestamp: new Date().toISOString() });
         saveChatHistory();
         
     } catch (error) {
