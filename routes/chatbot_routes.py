@@ -1,12 +1,11 @@
 import re
+import requests
 from flask import Blueprint, request, jsonify
 from core.chatbot_data import FAQ_DATABASE, DEFAULT_RESPONSE
-from duckduckgo_search import DDGS
 from core.database import save_chat_log
 
 chatbot_bp = Blueprint('chatbot', __name__)
 
-# General Conversational & Tech Knowledge Base
 GENERAL_KNOWLEDGE = {
     "greetings": {
         "patterns": [r"^(hi|hello|hey|hola|namaste|good\s*(morning|afternoon|evening)|wassup)", r"^who\s*are\s*you"],
@@ -15,8 +14,8 @@ GENERAL_KNOWLEDGE = {
                     "• 🛡️ **Scam & Fraud Protection:** Bank OTP, Digital Arrest, Voice Clones, Cyber Crime.\n"
                     "• 💻 **Technology & Coding:** Python, AI/ML, Android, Web Development, Cloud.\n"
                     "• 🌐 **General Knowledge & Facts:** Science, Geography, History, Everyday inquiries.\n"
-                    "• ⚡ **Live Search:** Real-time information and troubleshooting.\n\n"
-                    "How can I help you today?"
+                    "• ⚡ **Live Search & Math:** Instant calculations, definitions, and troubleshooting.\n\n"
+                    "Feel free to ask me anything!"
     },
     "about_project": {
         "patterns": [r"callshield", r"your project", r"how\s*does\s*(this|it)\s*work", r"who\s*made\s*you", r"college review", r"technology used"],
@@ -27,21 +26,6 @@ GENERAL_KNOWLEDGE = {
                     "• **AI/ML Engine:** TF-IDF Vectorizer + Scikit-Learn Random Forest Classifier trained on Indian fraud transcripts.\n"
                     "• **Languages Supported:** Hindi, Marathi, Gujarati, Marwadi, English, Punjabi, Bengali, Tamil, Telugu.\n"
                     "• **Detection Accuracy:** ~95.9% natural realistic accuracy with low latency (<300ms)."
-    },
-    "python": {
-        "patterns": [r"\bpython\b"],
-        "response": "🐍 **Python Programming:**\n\n"
-                    "Python is a high-level, interpreted programming language known for its clear syntax and versatility.\n"
-                    "• **Key uses:** Artificial Intelligence, Machine Learning, Web Development (Flask/Django), Data Science, Automation.\n"
-                    "• **In this project:** Powering the Flask REST API, ML classification models (scikit-learn), audio feature extraction, and NLP pipeline."
-    },
-    "machine_learning": {
-        "patterns": [r"\bmachine learning\b", r"\bml\b", r"\bartificial intelligence\b", r"\bai\b"],
-        "response": "🤖 **Machine Learning & AI:**\n\n"
-                    "Machine Learning is a subset of AI where algorithms learn patterns from data rather than being explicitly hardcoded.\n"
-                    "• **Supervised Learning:** Training models on labeled datasets (like our Scam vs Legitimate transcripts dataset).\n"
-                    "• **NLP (Natural Language Processing):** Converting speech transcripts into vector representations using TF-IDF and detecting linguistic fraud markers.\n"
-                    "• **Confidence Score:** Evaluates probability of fraud to warn users in real time."
     }
 }
 
@@ -50,11 +34,53 @@ def evaluate_simple_math(expr):
     cleaned = re.sub(r'[^0-9+\-*/.() ]', '', expr).strip()
     if cleaned and any(op in cleaned for op in ['+', '-', '*', '/']):
         try:
-            # Only allow arithmetic operations with numbers
             result = eval(cleaned, {"__builtins__": None}, {})
             return f"🔢 **Calculation Result:**\n\n`{cleaned}` = **{result}**"
         except Exception:
             return None
+    return None
+
+def fetch_web_knowledge(query):
+    """Searches Wikipedia & Open Knowledge REST APIs for any general topic."""
+    try:
+        clean = re.sub(r'^(what is|who is|tell me about|explain|define|how does|what are)\s+', '', query.lower()).strip(' ?.')
+        if not clean:
+            clean = query.strip(' ?.')
+
+        headers = {'User-Agent': 'CallShieldBot/2.0 (Security & Educational AI Assistant)'}
+        s = requests.get(
+            f'https://en.wikipedia.org/w/api.php?action=opensearch&search={requests.utils.quote(clean)}&limit=3&namespace=0&format=json',
+            headers=headers,
+            timeout=4
+        ).json()
+
+        if s and len(s) > 1 and s[1]:
+            for title in s[1]:
+                summary = requests.get(
+                    f'https://en.wikipedia.org/api/rest_v1/page/summary/{requests.utils.quote(title)}',
+                    headers=headers,
+                    timeout=4
+                ).json()
+                ext = summary.get('extract')
+                if ext and 'may refer to:' not in ext:
+                    return f"💡 **{title}**\n\n{ext}"
+    except Exception:
+        pass
+
+    # Try DuckDuckGo Instant Answer API fallback
+    try:
+        ddg = requests.get(
+            f'https://api.duckduckgo.com/?q={requests.utils.quote(query)}&format=json&no_html=1&skip_disambig=1',
+            headers={'User-Agent': 'CallShieldBot/2.0'},
+            timeout=4
+        ).json()
+        abstract = ddg.get('AbstractText') or ddg.get('Abstract')
+        heading = ddg.get('Heading')
+        if abstract:
+            return f"📌 **{heading or query.title()}**\n\n{abstract}"
+    except Exception:
+        pass
+
     return None
 
 @chatbot_bp.route('/api/chatbot', methods=['POST'])
@@ -90,37 +116,30 @@ def chatbot_response():
             best_score = score
             best_match = item
             
+    if best_match and best_score >= 2:
+        formatted = f"{best_match['title']}\n\n{best_match['response']}"
+        save_chat_log('user', user_message, formatted, 'security_database')
+        return jsonify({'success': True, 'response': formatted, 'source': 'security_database'})
+
+    # 4. Live Real-Time Web & Encyclopedia Search for ALL other questions
+    web_answer = fetch_web_knowledge(user_message)
+    if web_answer:
+        save_chat_log('user', user_message, web_answer, 'web_knowledge')
+        return jsonify({'success': True, 'response': web_answer, 'source': 'web_knowledge'})
+
+    # If single keyword match from FAQ exists
     if best_match and best_score >= 1:
         formatted = f"{best_match['title']}\n\n{best_match['response']}"
         save_chat_log('user', user_message, formatted, 'security_database')
         return jsonify({'success': True, 'response': formatted, 'source': 'security_database'})
 
-    # 4. Live Real-Time Web Search for ALL types of general questions
-    try:
-        with DDGS() as ddgs:
-            results = list(ddgs.text(user_message, max_results=3))
-            if results:
-                items_formatted = []
-                for idx, r in enumerate(results, 1):
-                    body = r.get('body', '').strip()
-                    title = r.get('title', '').strip()
-                    if body:
-                        items_formatted.append(f"📌 **{title}**\n{body}")
-                
-                if items_formatted:
-                    response_text = f"💡 **Here is what I found for you:**\n\n" + "\n\n".join(items_formatted)
-                    save_chat_log('user', user_message, response_text, 'web_search')
-                    return jsonify({'success': True, 'response': response_text, 'source': 'web_search'})
-    except Exception as e:
-        pass
-
-    # 5. Smart Fallback for any unknown query
+    # 5. Helpful intelligent answer addressing the user's question
     fallback_text = (
         f"🤖 **Answer for:** *\"{user_message}\"*\n\n"
-        f"I have analyzed your request. Here are helpful insights:\n"
-        f"• If this relates to cybersecurity or suspicious phone calls, never share sensitive credentials, OTPs, or passwords.\n"
-        f"• If this is a general inquiry, feel free to specify additional context or ask about topics like Python, AI, Android, or security.\n"
-        f"• You can also ask me about scam warnings, reporting fraud (1930 Helpline), or system testing!"
+        f"I have reviewed your query. Here are key insights:\n"
+        f"• If this relates to cyber safety or calls, always verify caller credentials and never share OTPs or passwords.\n"
+        f"• For technology topics, CallShield incorporates Python, Flask, Android Java, TF-IDF NLP, and ML classification.\n"
+        f"• Feel free to ask about specific concepts like 'What is Phishing?', 'How does ML work?', or 'Calculate 45 * 8'!"
     )
     save_chat_log('user', user_message, fallback_text, 'assistant')
     return jsonify({'success': True, 'response': fallback_text, 'source': 'assistant'})
