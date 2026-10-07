@@ -313,19 +313,29 @@ def api_analyze_chunk():
     )
 
     if not threat_payload:
-        # call_id not found — still return analysis result
-        fraud_score = float(result.get('fraud_score', 0))
+        # call_id not found — still return analysis result with all fields
+        from core.voip_session_manager import _classify_category, _build_warning_message
+        fraud_score  = float(result.get('fraud_score', 0))
+        keywords     = [str(k) for k in result.get('keywords_found', [])]
+        patterns     = [str(p) for p in result.get('patterns_detected', [])]
+        risk_level   = 'HIGH' if fraud_score >= 65 else 'MEDIUM' if fraud_score >= 40 else 'LOW-RISK' if fraud_score >= 35 else 'LOW'
+        category     = _classify_category(keywords + patterns)
+        is_fraud     = fraud_score >= 35.0 or len(keywords) > 0
         threat_payload = {
-            'call_id':           call_id,
-            'fraud_score':       round(fraud_score, 1),
-            'risk_level':        str(result.get('risk_level', 'Low')),
-            'is_fraud':          fraud_score >= 35.0,
-            'keywords_found':    [str(k) for k in result.get('keywords_found', [])],
-            'warning_title':     '🚨 Fraud Detected' if fraud_score >= 35 else '🛡️ Safe',
-            'warning_message':   str(result.get('detailed_advice', '')),
-            'latency_ms':        latency_ms,
-            'speaker_id':        speaker_id,
-            'transcript_snippet': transcript[:80]
+            'call_id':             call_id,
+            'fraud_score':         round(fraud_score, 1),
+            'peak_risk':           round(fraud_score, 1),
+            'risk_level':          risk_level,
+            'is_fraud':            is_fraud,
+            'category':            category,
+            'keywords_found':      keywords[:6],
+            'indicators':          keywords[:6],
+            'warning_title':       '🚨 Fraud Detected' if is_fraud else '🛡️ Call Safe',
+            'warning_message':     _build_warning_message(keywords, category) if is_fraud else 'Conversation appears safe.',
+            'detailed_advice':     str(result.get('detailed_advice', '')),
+            'latency_ms':          latency_ms,
+            'speaker_id':          speaker_id,
+            'transcript_snippet':  transcript[:80]
         }
 
     # ── Push via SocketIO to all devices in this call room ──
