@@ -39,3 +39,8 @@ def awareness():
 @views_bp.route('/modules/chatbot')
 def chatbot():
     return render_template('modules/chatbot.html')
+
+@views_bp.route('/modules/voip')
+@views_bp.route('/voip')
+def voip():
+    return render_template('modules/voip.html')

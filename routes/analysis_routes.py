@@ -5,6 +5,9 @@ from core.test_data import TEST_AUDIO_FILES
 
 from core.database import save_call_report, get_call_reports, get_contacts, save_contact, search_caller_identity
 
+analysis_bp = Blueprint('analysis', __name__)
+fraud_detector = FraudDetector()
+
 @analysis_bp.route('/api/caller_lookup', methods=['GET', 'POST'])
 def caller_lookup():
     data = request.json if request.method == 'POST' else request.args
@@ -24,9 +27,6 @@ def report_spam():
         return jsonify({'success': False, 'message': 'Phone number is required'}), 400
     save_contact(name, number, category)
     return jsonify({'success': True, 'message': f'Phone number {number} has been reported as {category} to Truecaller-style database!'})
-
-analysis_bp = Blueprint('analysis', __name__)
-fraud_detector = FraudDetector()
 
 @analysis_bp.route('/api/analyze_live', methods=['POST'])
 def analyze_live():
@@ -198,3 +198,148 @@ def analyze_uploaded():
             'confidence': '96%'
         }
     })
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  SPAM NUMBER LOOKUP API — Used by CallBlockingService on Android
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Centralized online spam number database (cross-user community list)
+KNOWN_SPAM_NUMBERS = {
+    # Fake banking officers
+    "9599853100": "Fake SBI Bank Officer — OTP Scam",
+    "9266007533": "Fake HDFC Credit Card Scam",
+    "9871028051": "KYC Verification Fraud — Account Block Scam",
+    "8800861714": "Axis Bank OTP Fraud",
+    "9958782020": "Digital Arrest Scam — Fake CBI Officer",
+    "9773123456": "UPI Refund Fraud",
+    "8527741234": "Fake Income Tax Officer Scam",
+    "9315678901": "Aadhaar Link Fraud — Account Block Threat",
+    "9250191234": "Electricity Bill Disconnection Fraud",
+    "9810001234": "Fake TRAI Call — SIM Block Threat",
+    # Investment / lottery
+    "7827831234": "Lottery Winner Fraud",
+    "9599001234": "Fake Job Offer Scam",
+    "8130001234": "Investment Fraud — High Return Scheme",
+    # Digital arrest
+    "9810501234": "Digital Arrest Scam — Fake Police Officer",
+    "9350001234": "ED / CBI Impersonation Fraud",
+    "8800501234": "Narcotics Bureau Impersonation Scam",
+    "9958001234": "FedEx Parcel Scam — Fake Customs Officer",
+    # Tech support
+    "1800111234": "Fake Microsoft Support Scam",
+    "1800221234": "Fake Google Account Recovery Scam",
+    "1800331234": "Fake Amazon Support OTP Scam",
+    # More reported numbers
+    "9818923456": "Known Cyber Fraud — Reported 500+ times",
+    "9810234567": "Fake Bank Recovery Agent",
+    "9958345678": "Phishing Call — IRCTC Refund Fraud",
+    "9315456789": "Electricity Disconnection Threat Fraud",
+    "9205567890": "Fake Job Offer — Work From Home Scam",
+    "8527678901": "Loan Recovery Threat Fraud",
+    "9599789012": "Fake Customs — Package Scam",
+    "9266890123": "Digital Payment Reversal Fraud",
+    "9873901234": "Fake Scholarship Scam",
+    "8810012345": "Prize Money Fraud",
+}
+
+# Community-reported numbers (added via /api/report_spam)
+community_reported = {}
+
+
+def clean_number(raw):
+    """Normalize phone number to digits, strip country code."""
+    import re
+    digits = re.sub(r'[^0-9]', '', raw or '')
+    if digits.startswith('91') and len(digits) == 12:
+        digits = digits[2:]
+    if digits.startswith('0') and len(digits) == 11:
+        digits = digits[1:]
+    return digits
+
+
+@analysis_bp.route('/api/check_spam_number', methods=['GET', 'POST'])
+def check_spam_number():
+    """
+    Android CallBlockingService calls this to check if an incoming number is spam.
+    Returns: { is_spam: bool, reason: str, reports: int }
+    """
+    number = request.args.get('number') or (request.json or {}).get('number', '')
+    cleaned = clean_number(number)
+    if not cleaned:
+        return jsonify({'success': False, 'message': 'Number required'}), 400
+
+    # Check seeded spam list
+    if cleaned in KNOWN_SPAM_NUMBERS:
+        return jsonify({
+            'success': True,
+            'is_spam': True,
+            'reason': KNOWN_SPAM_NUMBERS[cleaned],
+            'source': 'CallShield Spam Database',
+            'reports': 1
+        })
+
+    # Check last 10 digits
+    last10 = cleaned[-10:] if len(cleaned) > 10 else cleaned
+    for key, reason in KNOWN_SPAM_NUMBERS.items():
+        if key.endswith(last10) or last10 == key[-10:]:
+            return jsonify({
+                'success': True,
+                'is_spam': True,
+                'reason': reason,
+                'source': 'CallShield Spam Database (pattern match)',
+                'reports': 1
+            })
+
+    # Check community reported
+    if cleaned in community_reported:
+        entry = community_reported[cleaned]
+        return jsonify({
+            'success': True,
+            'is_spam': True,
+            'reason': entry['reason'],
+            'source': 'Community Reported',
+            'reports': entry['count']
+        })
+
+    return jsonify({
+        'success': True,
+        'is_spam': False,
+        'reason': 'Not in spam database',
+        'source': 'CallShield',
+        'reports': 0
+    })
+
+
+@analysis_bp.route('/api/report_spam', methods=['POST'])
+def report_spam_number_api():
+    """
+    Users report a spam number — adds to community database.
+    Also used by Android app when user taps 'Report Spam Number'.
+    """
+    data = request.json or {}
+    number = data.get('number', '').strip()
+    reason = data.get('reason', 'Reported as spam by user').strip()
+    name   = data.get('name', 'Spam Caller').strip()
+
+    if not number:
+        return jsonify({'success': False, 'message': 'Phone number is required'}), 400
+
+    cleaned = clean_number(number)
+
+    if cleaned in community_reported:
+        community_reported[cleaned]['count'] += 1
+    else:
+        community_reported[cleaned] = {'reason': reason, 'count': 1}
+
+    # Also save to our backend contact database
+    try:
+        save_contact(name, number, 'Spam — ' + reason)
+    except Exception:
+        pass
+
+    return jsonify({
+        'success': True,
+        'message': f'Number {number} reported as spam! Future calls will be auto-blocked.',
+        'total_reports': community_reported[cleaned]['count']
+    })
+

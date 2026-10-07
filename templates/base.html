@@ -86,27 +86,30 @@
                 
                 <!-- Desktop Top Navigation -->
                 <div class="hidden md:flex items-center space-x-1.5">
-                    <a href="/modules/dialer" id="top-nav-dialer" class="px-3.5 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
-                        <i class="fas fa-phone-alt text-blue-400"></i> Phone & Contacts
+                    <a href="/modules/voip" id="top-nav-voip" class="px-3 py-2 rounded-xl text-sm font-semibold text-cyan-300 hover:bg-cyan-950/40 border border-cyan-500/30 transition flex items-center gap-2">
+                        <i class="fas fa-headset text-cyan-400"></i> VoIP Call
                     </a>
-                    <a href="/modules/live-call" id="top-nav-live" class="px-3.5 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
+                    <a href="/modules/dialer" id="top-nav-dialer" class="px-3 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
+                        <i class="fas fa-phone-alt text-blue-400"></i> Dialer
+                    </a>
+                    <a href="/modules/live-call" id="top-nav-live" class="px-3 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
                         <i class="fas fa-satellite-dish text-emerald-400"></i> Live Scanner
                     </a>
-                    <a href="/modules/recorded" id="top-nav-recorded" class="px-3.5 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
+                    <a href="/modules/recorded" id="top-nav-recorded" class="px-3 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
                         <i class="fas fa-file-audio text-purple-400"></i> Recorded
                     </a>
-                    <a href="/modules/chatbot" id="top-nav-chatbot" class="px-3.5 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
+                    <a href="/modules/chatbot" id="top-nav-chatbot" class="px-3 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
                         <i class="fas fa-robot text-pink-400"></i> AI Chatbot
                     </a>
-                    <a href="/dashboard" id="top-nav-dashboard" class="px-3.5 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
+                    <a href="/dashboard" id="top-nav-dashboard" class="px-3 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
                         <i class="fas fa-chart-line text-amber-400"></i> Dashboard
                     </a>
                 </div>
 
                 <!-- Action Button -->
                 <div class="flex items-center space-x-2">
-                    <a href="/modules/dialer" class="px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-lg shadow-blue-900/30 flex items-center gap-1.5 active:scale-95 transition">
-                        <i class="fas fa-phone-alt"></i> Call Now
+                    <a href="/modules/voip" class="px-3.5 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-lg shadow-cyan-900/30 flex items-center gap-1.5 active:scale-95 transition">
+                        <i class="fas fa-headset"></i> VoIP Call
                     </a>
                 </div>
             </div>
@@ -120,26 +123,30 @@
     
     <!-- Native Mobile Bottom Navigation Bar (Persistent across Mobile/Tablet) -->
     <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-gray-950/98 backdrop-blur-2xl border-t border-gray-800/80 z-50 mobile-bottom-nav shadow-2xl">
-        <div class="grid grid-cols-5 h-16">
+        <div class="grid grid-cols-6 h-16">
+            <a href="/modules/voip" id="bot-nav-voip" class="flex flex-col items-center justify-center text-cyan-400 hover:text-cyan-300 transition active:scale-95">
+                <i class="fas fa-headset text-base mb-1"></i>
+                <span class="text-[9px] font-bold">VoIP</span>
+            </a>
             <a href="/modules/dialer" id="bot-nav-dialer" class="flex flex-col items-center justify-center text-gray-400 hover:text-blue-400 transition active:scale-95">
                 <i class="fas fa-phone-alt text-base mb-1"></i>
-                <span class="text-[10px] font-medium">Dialer</span>
+                <span class="text-[9px] font-medium">Dialer</span>
             </a>
             <a href="/modules/live-call" id="bot-nav-live" class="flex flex-col items-center justify-center text-gray-400 hover:text-emerald-400 transition active:scale-95">
                 <i class="fas fa-satellite-dish text-base mb-1"></i>
-                <span class="text-[10px] font-medium">Live Call</span>
+                <span class="text-[9px] font-medium">Live</span>
             </a>
             <a href="/modules/recorded" id="bot-nav-recorded" class="flex flex-col items-center justify-center text-gray-400 hover:text-purple-400 transition active:scale-95">
                 <i class="fas fa-file-audio text-base mb-1"></i>
-                <span class="text-[10px] font-medium">Recorded</span>
+                <span class="text-[9px] font-medium">Audio</span>
             </a>
             <a href="/modules/chatbot" id="bot-nav-chatbot" class="flex flex-col items-center justify-center text-gray-400 hover:text-pink-400 transition active:scale-95">
                 <i class="fas fa-robot text-base mb-1"></i>
-                <span class="text-[10px] font-medium">AI Chat</span>
+                <span class="text-[9px] font-medium">AI Chat</span>
             </a>
             <a href="/dashboard" id="bot-nav-dashboard" class="flex flex-col items-center justify-center text-gray-400 hover:text-amber-400 transition active:scale-95">
                 <i class="fas fa-chart-bar text-base mb-1"></i>
-                <span class="text-[10px] font-medium">Stats</span>
+                <span class="text-[9px] font-medium">Stats</span>
             </a>
         </div>
     </nav>
@@ -158,7 +165,11 @@
             
             // Highlight current active page in navigation
             const path = window.location.pathname;
-            if (path.includes('/dialer')) {
+            if (path.includes('/voip')) {
+                document.getElementById('bot-nav-voip')?.classList.add('tab-active-item');
+                document.getElementById('bot-nav-voip')?.querySelector('i')?.classList.add('tab-active-icon');
+                document.getElementById('top-nav-voip')?.classList.add('bg-cyan-600/20', 'text-cyan-300', 'border', 'border-cyan-500/50');
+            } else if (path.includes('/dialer')) {
                 document.getElementById('bot-nav-dialer')?.classList.add('tab-active-item');
                 document.getElementById('bot-nav-dialer')?.querySelector('i')?.classList.add('tab-active-icon');
                 document.getElementById('top-nav-dialer')?.classList.add('bg-blue-600/20', 'text-blue-400', 'border', 'border-blue-500/30');

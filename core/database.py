@@ -180,7 +180,6 @@ def init_db():
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS chat_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    sender INTEGER PRIMARY KEY AUTOINCREMENT,
                     sender TEXT NOT NULL,
                     message TEXT NOT NULL,
                     response TEXT,
