@@ -29,16 +29,17 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'callshield_secret_key_2
 app.url_map.strict_slashes = False
 
 # ─── Flask-SocketIO Setup ─────────────────────────────────────────────────────
-# async_mode='eventlet' required for WebSocket support on local/VPS.
-# cors_allowed_origins='*' allows Android WebView to connect.
-# On Vercel (serverless) SocketIO cannot work — run locally for full features.
-socketio = SocketIO(
-    app,
-    async_mode='threading',
-    cors_allowed_origins='*',
-    logger=False,
-    engineio_logger=False
-)
+try:
+    from flask_socketio import SocketIO, join_room, leave_room, emit
+    socketio = SocketIO(
+        app,
+        async_mode='threading',
+        cors_allowed_origins='*',
+        logger=False,
+        engineio_logger=False
+    )
+except Exception as _sio_err:
+    socketio = None
 
 # ─── Database Init ────────────────────────────────────────────────────────────
 @app.before_request
@@ -88,60 +89,56 @@ def catch_all_routes(path):
 
 
 # ─── SocketIO Events — /voip Namespace ────────────────────────────────────────
+if socketio is not None:
+    @socketio.on('connect', namespace='/voip')
+    def voip_connect():
+        """Client connected to SocketIO /voip namespace."""
+        print(f'[SocketIO] Client connected: {request.sid}')
+        emit('connected', {'status': 'Connected to CallShield VoIP Server'})
 
-@socketio.on('connect', namespace='/voip')
-def voip_connect():
-    """Client connected to SocketIO /voip namespace."""
-    print(f'[SocketIO] Client connected: {request.sid}')  # noqa: F821
-    emit('connected', {'status': 'Connected to CallShield VoIP Server'})
+    @socketio.on('disconnect', namespace='/voip')
+    def voip_disconnect():
+        """Client disconnected from /voip namespace."""
+        print(f'[SocketIO] Client disconnected: {request.sid}')
 
+    @socketio.on('join_call', namespace='/voip')
+    def voip_join_call(data):
+        """
+        Client joins a SocketIO room identified by call_id.
+        This enables server to push risk_update events to all participants.
+        Payload: { call_id: str, user_id: str }
+        """
+        call_id = str(data.get('call_id', '')).strip()
+        user_id = str(data.get('user_id', '')).strip()
+        if call_id:
+            join_room(call_id)
+            emit('joined_room', {
+                'call_id': call_id,
+                'user_id': user_id,
+                'message': f'Joined call room {call_id}. Real-time fraud detection active.'
+            })
+            print(f'[SocketIO] {user_id} joined room {call_id}')
 
-@socketio.on('disconnect', namespace='/voip')
-def voip_disconnect():
-    """Client disconnected from /voip namespace."""
-    print(f'[SocketIO] Client disconnected: {request.sid}')  # noqa: F821
+    @socketio.on('leave_call', namespace='/voip')
+    def voip_leave_call(data):
+        """Client leaves the call room on hang-up."""
+        call_id = str(data.get('call_id', '')).strip()
+        if call_id:
+            leave_room(call_id)
+            emit('left_room', {'call_id': call_id})
 
+    @socketio.on('user_online', namespace='/voip')
+    def voip_user_online(data):
+        """
+        User registers their SocketIO SID in a personal room (user_id).
+        This allows server to push incoming_call events directly.
+        """
+        user_id = str(data.get('user_id', '')).strip()
+        if user_id:
+            join_room(user_id)
+            print(f'[SocketIO] {user_id} listening on personal room')
+            emit('online_ack', {'user_id': user_id, 'status': 'online'})
 
-@socketio.on('join_call', namespace='/voip')
-def voip_join_call(data):
-    """
-    Client joins a SocketIO room identified by call_id.
-    This enables server to push risk_update events to all participants.
-
-    Payload: { call_id: str, user_id: str }
-    """
-    call_id = str(data.get('call_id', '')).strip()
-    user_id = str(data.get('user_id', '')).strip()
-    if call_id:
-        join_room(call_id)
-        emit('joined_room', {
-            'call_id': call_id,
-            'user_id': user_id,
-            'message': f'Joined call room {call_id}. Real-time fraud detection active.'
-        })
-        print(f'[SocketIO] {user_id} joined room {call_id}')
-
-
-@socketio.on('leave_call', namespace='/voip')
-def voip_leave_call(data):
-    """Client leaves the call room on hang-up."""
-    call_id = str(data.get('call_id', '')).strip()
-    if call_id:
-        leave_room(call_id)
-        emit('left_room', {'call_id': call_id})
-
-
-@socketio.on('user_online', namespace='/voip')
-def voip_user_online(data):
-    """
-    User registers their SocketIO SID in a personal room (user_id).
-    This allows server to push incoming_call events directly.
-    """
-    user_id = str(data.get('user_id', '')).strip()
-    if user_id:
-        join_room(user_id)          # personal notification room
-        print(f'[SocketIO] {user_id} listening on personal room')
-        emit('online_ack', {'user_id': user_id, 'status': 'online'})
 
 
 # ─── Entry Point ──────────────────────────────────────────────────────────────
