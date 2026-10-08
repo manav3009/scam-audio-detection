@@ -1,1337 +1,905 @@
-{% extends "base.html" %}
-
-{% block title %}CallShield VoIP — Live Protected Call{% endblock %}
-
-{% block extra_css %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CallShield AI — VoIP Live Fraud Detection</title>
+<!-- PeerJS for 100% Serverless WebRTC VoIP Calling -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
-/* ═══════════════════════════════════════════════════════════════
-   CallShield VoIP — Live Protected Call Screen CSS
-   ════════════════════════════════════════════════════════════════ */
 :root {
-  --cs-cyan:   #00d4ff;
-  --cs-green:  #00ff87;
-  --cs-red:    #ff3c3c;
-  --cs-orange: #ff8c00;
+  --cs-bg: #070a13;
+  --cs-card: #0f172a;
+  --cs-card-sub: #1e293b;
+  --cs-cyan: #00d4ff;
+  --cs-green: #00ff87;
+  --cs-red: #ff3c3c;
   --cs-yellow: #ffd700;
-  --cs-dark:   #0a0a1a;
-  --cs-card:   #111128;
-  --cs-border: rgba(0,212,255,0.15);
+  --cs-orange: #ff8c00;
+  --cs-border: rgba(0, 212, 255, 0.18);
 }
-
-/* ── Layout ── */
-body { background: var(--cs-dark); color: #eee; font-family: 'Inter', sans-serif; margin: 0; }
-.voip-wrapper { max-width: 480px; margin: 0 auto; min-height: 100vh; padding: 0 0 80px; }
-
-/* ── Cards ── */
-.cs-card {
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  background: var(--cs-bg);
+  color: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+  padding-bottom: 30px;
+}
+.header {
+  background: var(--cs-card);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--cs-border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-brand { display: flex; align-items: center; gap: 10px; }
+.header-brand h1 { font-size: 17px; font-weight: 700; color: #fff; }
+.header-brand span { font-size: 11px; color: var(--cs-cyan); letter-spacing: 0.5px; }
+.badge-online {
+  background: rgba(0, 255, 135, 0.15);
+  color: var(--cs-green);
+  border: 1px solid var(--cs-green);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.container { max-width: 480px; margin: 0 auto; padding: 12px; }
+.card {
   background: var(--cs-card);
   border: 1px solid var(--cs-border);
-  border-radius: 16px;
-  padding: 20px;
-  margin: 12px;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.btn-preset-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.btn-preset {
+  flex: 1;
+  background: var(--cs-card-sub);
+  color: #cbd5e1;
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 8px 6px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-preset.active {
+  background: rgba(0, 212, 255, 0.15);
+  border-color: var(--cs-cyan);
+  color: var(--cs-cyan);
+}
+.input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.cs-input {
+  flex: 1;
+  background: #030712;
+  border: 1px solid #334155;
+  color: #f8fafc;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+}
+.cs-input:focus { border-color: var(--cs-cyan); }
+.btn-primary {
+  width: 100%;
+  background: linear-gradient(135deg, #00d4ff, #0284c7);
+  border: none;
+  color: #030712;
+  font-weight: 700;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.btn-danger {
+  background: var(--cs-red);
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
 }
 
-/* ── Status badge ── */
-.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-.status-dot.online  { background: var(--cs-green); box-shadow: 0 0 6px var(--cs-green); }
-.status-dot.offline { background: #666; }
-.status-dot.in_call { background: var(--cs-cyan); animation: pulse 1s infinite; }
-
-/* ── Avatar ring ── */
-.avatar-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
-.avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #1a1a4e, #00d4ff33);
-          font-size: 32px; display: flex; align-items: center; justify-content: center;
-          border: 2px solid var(--cs-cyan); }
+/* Call Screen */
+#callScreen { display: none; }
+.call-header { text-align: center; padding: 20px 0 10px; }
+.avatar-wrap {
+  width: 90px;
+  height: 90px;
+  margin: 0 auto 12px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.avatar-core {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border: 2px solid var(--cs-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  z-index: 2;
+}
 .avatar-ring {
-  position: absolute; width: 100px; height: 100px; border-radius: 50%;
-  border: 2px solid rgba(0,212,255,0.4); animation: ring-expand 1.8s ease-out infinite;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid rgba(0,212,255,0.4);
+  animation: pulse-ring 2s infinite;
 }
-.avatar-ring-2 { animation-delay: 0.6s; }
-.avatar-ring-3 { animation-delay: 1.2s; }
-
-/* ── Risk badge ── */
-.risk-badge {
-  display: inline-block; padding: 4px 12px; border-radius: 20px;
-  font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 1; }
+  100% { transform: scale(1.35); opacity: 0; }
 }
-.risk-LOW    { background: rgba(0,255,135,0.15); color: var(--cs-green); border: 1px solid var(--cs-green); }
-.risk-MEDIUM { background: rgba(255,215,0,0.15); color: var(--cs-yellow); border: 1px solid var(--cs-yellow); }
-.risk-HIGH   { background: rgba(255,60,60,0.15); color: var(--cs-red); border: 1px solid var(--cs-red); animation: blink-red 0.8s ease infinite; }
-.risk-LOWRISK { background: rgba(255,140,0,0.15); color: var(--cs-orange); border: 1px solid var(--cs-orange); }
+.call-peer { font-size: 20px; font-weight: 700; color: #fff; }
+.call-sub { font-size: 12px; color: var(--cs-cyan); margin-top: 2px; }
+.call-timer { font-size: 26px; font-weight: 300; font-family: monospace; color: #94a3b8; margin-top: 6px; }
 
-/* ── Warning banner ── */
+/* Fraud Alert Banner */
 #fraudBanner {
   display: none;
-  background: linear-gradient(135deg, #2a0000, #1a0000);
+  background: linear-gradient(135deg, #450a0a, #1f0202);
   border: 2px solid var(--cs-red);
-  border-radius: 16px;
+  border-radius: 14px;
   padding: 16px;
-  margin: 8px 12px;
-  animation: fraud-ring 0.6s ease-in-out;
-  box-shadow: 0 0 30px rgba(255,60,60,0.4);
+  margin-bottom: 12px;
+  animation: shake 0.5s ease-in-out;
+  box-shadow: 0 0 25px rgba(255,60,60,0.5);
 }
 #fraudBanner.active { display: block; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+.fraud-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.fraud-title h3 { color: var(--cs-red); font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.fraud-score-badge {
+  background: var(--cs-red);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.fraud-msg { font-size: 12px; color: #fecaca; line-height: 1.4; margin-bottom: 8px; }
+.fraud-kws { display: flex; flex-wrap: wrap; gap: 6px; }
+.kw-tag {
+  background: rgba(255,60,60,0.25);
+  border: 1px solid var(--cs-red);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
 
-/* ── Call control buttons ── */
-.call-controls { display: flex; gap: 16px; justify-content: center; padding: 20px 12px; }
+/* Risk Meter */
+.risk-meter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.risk-score { font-size: 28px; font-weight: 800; color: var(--cs-green); }
+.risk-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.risk-LOW { background: rgba(0,255,135,0.15); color: var(--cs-green); border: 1px solid var(--cs-green); }
+.risk-MEDIUM { background: rgba(255,215,0,0.15); color: var(--cs-yellow); border: 1px solid var(--cs-yellow); }
+.risk-HIGH { background: rgba(255,60,60,0.2); color: var(--cs-red); border: 1px solid var(--cs-red); }
+.progress-bar-bg {
+  height: 8px;
+  background: #1e293b;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--cs-green);
+  transition: width 0.4s, background-color 0.4s;
+}
+
+/* Transcript & Timeline */
+.scroll-panel {
+  max-height: 140px;
+  overflow-y: auto;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.transcript-bubble {
+  background: #030712;
+  border-left: 3px solid var(--cs-cyan);
+  padding: 8px 10px;
+  border-radius: 6px;
+  line-height: 1.4;
+}
+.transcript-bubble.danger {
+  border-left-color: var(--cs-red);
+  background: rgba(255,60,60,0.08);
+}
+.transcript-speaker {
+  font-size: 10px;
+  color: #64748b;
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+.timeline-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Call Controls */
+.call-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  padding: 16px 0;
+}
 .ctrl-btn {
-  width: 60px; height: 60px; border-radius: 50%; border: none; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; font-size: 22px;
-  transition: all 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: none;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
 }
-.ctrl-btn:hover { transform: scale(1.1); }
-.ctrl-end { background: var(--cs-red); }
-.ctrl-mute { background: #222240; border: 1px solid var(--cs-border); }
-.ctrl-mute.muted { background: rgba(255,60,60,0.2); border-color: var(--cs-red); }
-.ctrl-speaker { background: #222240; border: 1px solid var(--cs-border); }
+.btn-mute { background: #1e293b; color: #fff; }
+.btn-mute.active { background: rgba(255,60,60,0.25); color: var(--cs-red); border: 2px solid var(--cs-red); }
+.btn-end { background: var(--cs-red); color: #fff; width: 68px; height: 68px; font-size: 28px; }
 
-/* ── Timeline ── */
-.timeline-entry {
-  display: flex; gap: 10px; padding: 8px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px;
-}
-.tl-time { color: var(--cs-cyan); min-width: 40px; font-weight: 600; }
-.tl-risk { min-width: 40px; text-align: right; font-weight: 700; }
-.tl-risk.high   { color: var(--cs-red); }
-.tl-risk.medium { color: var(--cs-yellow); }
-.tl-risk.low    { color: var(--cs-green); }
-.tl-text { flex: 1; color: #aaa; }
-.tl-speaker { font-size: 11px; color: #666; min-width: 60px; text-align: right; }
-
-/* ── Transcript ── */
-.transcript-line {
-  padding: 6px 10px; border-radius: 8px; margin-bottom: 6px; font-size: 13px;
-  background: rgba(255,255,255,0.04); border-left: 3px solid transparent;
-}
-.transcript-line.CALLER   { border-left-color: var(--cs-cyan); }
-.transcript-line.RECEIVER { border-left-color: var(--cs-green); }
-.transcript-line.fraud    { background: rgba(255,60,60,0.1); border-left-color: var(--cs-red); }
-.transcript-speaker { font-size: 10px; color: #888; margin-bottom: 2px; }
-
-/* ── Lobby ── */
-.preset-btn {
-  background: rgba(0,212,255,0.1); border: 1px solid var(--cs-cyan);
-  color: var(--cs-cyan); border-radius: 8px; padding: 8px 14px;
-  cursor: pointer; font-size: 13px; transition: all 0.2s;
-}
-.preset-btn:hover { background: rgba(0,212,255,0.2); }
-
-.user-card {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px; background: rgba(255,255,255,0.04); border-radius: 10px; margin-bottom: 6px;
-}
-.call-user-btn {
-  background: linear-gradient(135deg, #00d4ff, #0090aa);
-  border: none; color: #000; border-radius: 8px; padding: 6px 14px;
-  cursor: pointer; font-weight: 700; font-size: 13px;
-}
-.call-user-btn:hover { transform: scale(1.05); }
-
-/* ── Incoming call modal ── */
+/* Incoming Modal */
 #incomingModal {
-  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
-  z-index: 9999; align-items: center; justify-content: center;
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.92);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
 }
 #incomingModal.active { display: flex; }
-.incoming-card {
-  background: var(--cs-card); border: 2px solid var(--cs-cyan);
-  border-radius: 20px; padding: 30px; text-align: center; width: 300px;
-  animation: ring-expand 0.5s ease;
-}
-.answer-btn { background: var(--cs-green); border: none; color: #000; font-weight: 700; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-size: 15px; margin: 6px; }
-.reject-btn { background: var(--cs-red); border: none; color: #fff; font-weight: 700; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-size: 15px; margin: 6px; }
-
-/* ── Performance latency ── */
-.latency-bar { font-size: 11px; color: #555; text-align: right; padding: 2px 12px; }
-.latency-bar span { color: var(--cs-cyan); font-weight: 600; }
-
-/* ── Demo banner ── */
-.demo-banner {
-  background: rgba(255,140,0,0.1); border: 1px solid var(--cs-orange);
-  border-radius: 12px; padding: 10px 16px; margin: 8px 12px;
-  font-size: 13px; color: var(--cs-orange); text-align: center;
-}
-
-/* ── Animations ── */
-@keyframes ring-expand {
-  0%   { transform: scale(0.9); opacity: 1; }
-  100% { transform: scale(1.3); opacity: 0; }
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
-}
-@keyframes fraud-ring {
-  0%   { box-shadow: 0 0 0 rgba(255,60,60,0); }
-  50%  { box-shadow: 0 0 40px rgba(255,60,60,0.6); }
-  100% { box-shadow: 0 0 30px rgba(255,60,60,0.4); }
-}
-@keyframes blink-red {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.5; }
+.modal-box {
+  background: var(--cs-card);
+  border: 2px solid var(--cs-cyan);
+  border-radius: 20px;
+  padding: 24px;
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+  box-shadow: 0 0 30px rgba(0,212,255,0.3);
 }
 </style>
-{% endblock %}
+</head>
+<body>
 
-{% block content %}
-
-<!-- ════════════════════════════════════════════════════════════
-     INCOMING CALL MODAL
-════════════════════════════════════════════════════════════ -->
-<div id="incomingModal">
-  <div class="incoming-card">
-    <div style="font-size:50px; margin-bottom:10px">📞</div>
-    <div style="color:#aaa; font-size:13px; margin-bottom:4px">Incoming VoIP Call</div>
-    <div id="incomingCallerName" style="font-size:20px; font-weight:700; color:var(--cs-cyan); margin-bottom:20px">Unknown</div>
-    <button class="answer-btn" onclick="answerCall()">✅ Answer</button>
-    <button class="reject-btn" onclick="rejectCall()">❌ Reject</button>
-  </div>
-</div>
-
-<div class="voip-wrapper">
-
-<!-- ════════════════════════════════════════════════════════════
-     SCREEN: LOBBY (shown when not in call)
-════════════════════════════════════════════════════════════ -->
-<div id="lobbyScreen">
-
-  <!-- Header -->
-  <div style="padding: 20px 16px 10px; display:flex; align-items:center; gap:12px;">
-    <div style="font-size:28px">🛡️</div>
+<!-- Header -->
+<div class="header">
+  <div class="header-brand">
+    <span style="font-size:22px">🛡️</span>
     <div>
-      <div style="font-size:18px; font-weight:700; color:var(--cs-cyan)">CallShield VoIP</div>
-      <div style="font-size:12px; color:#666">Live Protected Internet Calling</div>
-    </div>
-    <div style="margin-left:auto;">
-      <button onclick="showTab('history')" style="background:none;border:1px solid #333;color:#aaa;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px">📋 History</button>
+      <h1>CallShield AI</h1>
+      <span>LIVE VOIP SCAM DEFENDER</span>
     </div>
   </div>
+  <div id="statusBadge" class="badge-online">● Ready</div>
+</div>
 
-  <!-- Your Identity -->
-  <div class="cs-card">
-    <div style="font-size:13px; color:#888; margin-bottom:10px">👤 Your Identity</div>
-    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
-      <button class="preset-btn" onclick="setIdentity('User_A','User A')">👤 I'm User A</button>
-      <button class="preset-btn" onclick="setIdentity('User_B','User B')">👤 I'm User B</button>
-      <button class="preset-btn" onclick="setIdentity('Demo_1','Demo User')">🎭 Demo</button>
-    </div>
-    <div style="display:flex; gap:8px;">
-      <input id="myUserId"   class="cs-input" placeholder="User ID (e.g. user_abc)" style="flex:1;">
-      <input id="myUserName" class="cs-input" placeholder="Display Name" style="flex:1;">
-    </div>
-    <button onclick="registerMe()" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#00d4ff,#0090aa);border:none;color:#000;font-weight:700;padding:10px;border-radius:10px;cursor:pointer;font-size:14px">
-      🔗 Go Online
-    </button>
-    <div id="myStatus" style="margin-top:8px;font-size:12px;color:#666;text-align:center"></div>
-  </div>
+<div class="container">
 
-  <!-- Online Users -->
-  <div class="cs-card" id="onlineUsersCard" style="display:none">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-      <div style="font-size:13px; color:#888">🌐 Online Users</div>
-      <button onclick="refreshUsers()" style="background:none;border:1px solid #333;color:#aaa;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px">↻ Refresh</button>
-    </div>
-    <div id="onlineUsersList"><div style="color:#555;font-size:13px">Checking for online users...</div></div>
-    <div style="margin-top:12px; border-top:1px solid #222; padding-top:12px;">
-      <div style="font-size:12px; color:#888; margin-bottom:8px">Or call by User ID:</div>
-      <div style="display:flex; gap:8px;">
-        <input id="callTargetId" class="cs-input" placeholder="Enter User ID to call" style="flex:1;">
-        <button onclick="callByID()" style="background:var(--cs-cyan);border:none;color:#000;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;">📞 Call</button>
+  <!-- ============================================================= -->
+  <!-- LOBBY SCREEN (Initiate / Receive)                              -->
+  <!-- ============================================================= -->
+  <div id="lobbyScreen">
+    
+    <!-- User Setup Card -->
+    <div class="card">
+      <div class="card-title">
+        <span>👤 Your VoIP Identity</span>
+        <span id="peerStateText" style="color:var(--cs-green);font-size:11px">Offline</span>
+      </div>
+      <div class="btn-preset-row">
+        <button class="btn-preset active" onclick="selectUserPreset('User_A')">👤 I'm User A</button>
+        <button class="btn-preset" onclick="selectUserPreset('User_B')">👤 I'm User B</button>
+      </div>
+      <div class="input-row">
+        <input type="text" id="myPeerId" class="cs-input" placeholder="Your Peer ID" value="User_A">
+        <button class="btn-primary" style="width: auto; padding: 0 16px;" onclick="connectPeer()">Online</button>
+      </div>
+      <div style="font-size:11px;color:#64748b;line-height:1.4">
+        💡 Tap <b>Online</b>. Two phones anywhere can call each other directly using WebRTC Cloud Signaling!
       </div>
     </div>
-  </div>
 
-  <!-- 2-Phone Testing Guide -->
-  <div class="cs-card" style="border-color:rgba(0,255,135,0.15)">
-    <div style="font-size:13px; color:var(--cs-green); margin-bottom:10px; font-weight:600">📱 2-Phone Testing Guide</div>
-    <div style="font-size:12px; color:#888; line-height:1.7;">
-      <b style="color:#eee">Phone 1:</b> Select <code style="color:var(--cs-cyan)">I'm User A</code> → Go Online → Wait<br>
-      <b style="color:#eee">Phone 2:</b> Select <code style="color:var(--cs-cyan)">I'm User B</code> → Go Online → Call User A<br>
-      <div style="margin-top:8px; color:#555; font-size:11px">
-        ⚠️ Both phones must open the same server URL (local IP or Vercel).<br>
-        Internet required for cross-network calls (uses STUN).
+    <!-- Call Target Card -->
+    <div class="card">
+      <div class="card-title">📞 Call Another User</div>
+      <div class="input-row">
+        <input type="text" id="targetPeerId" class="cs-input" placeholder="Recipient ID (e.g. User_B)" value="User_B">
+        <button class="btn-primary" style="width: auto; padding: 0 18px;" onclick="startCall()">Call</button>
+      </div>
+      <div style="font-size:11px;color:#64748b">
+        Target will receive an instant incoming ring with Accept/Reject buttons.
       </div>
     </div>
-  </div>
 
-  <!-- Demo Mode -->
-  <div class="cs-card" style="border-color:rgba(255,140,0,0.2)">
-    <div style="font-size:13px; color:var(--cs-orange); margin-bottom:10px; font-weight:600">🎭 Demo Mode — No VoIP Required</div>
-    <div style="font-size:12px; color:#888; margin-bottom:10px;">Test fraud detection without a real call. Results are clearly marked as Demo.</div>
-    <textarea id="demoText" style="width:100%;background:#0a0a1a;border:1px solid #333;color:#eee;border-radius:8px;padding:10px;font-size:13px;resize:vertical;min-height:70px;box-sizing:border-box;" placeholder="Type or paste suspicious text here...
-e.g.: Please share your OTP to verify your KYC"></textarea>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-      <button class="preset-btn" onclick="demoFill('Please share your OTP immediately, your account will be blocked')">🔴 OTP Scam</button>
-      <button class="preset-btn" onclick="demoFill('Your KYC verification has expired. Send CVV and PIN to verify')">🔴 KYC Fraud</button>
-      <button class="preset-btn" onclick="demoFill('Hi how are you? Can we meet for lunch tomorrow?')">🟢 Safe Text</button>
-    </div>
-    <button onclick="runDemoAnalysis()" style="width:100%;margin-top:10px;background:rgba(255,140,0,0.2);border:1px solid var(--cs-orange);color:var(--cs-orange);font-weight:700;padding:10px;border-radius:10px;cursor:pointer;font-size:14px">
-      🎭 Analyze (Demo)
-    </button>
-    <div id="demoResult" style="margin-top:10px;"></div>
-  </div>
-
-  <!-- History Tab (hidden by default) -->
-  <div id="historyTab" style="display:none;">
-    <div class="cs-card">
-      <div style="font-size:14px; font-weight:600; color:var(--cs-cyan); margin-bottom:12px">📋 VoIP Call History</div>
-      <div id="historyList"><div style="color:#555;font-size:13px">Loading history...</div></div>
-    </div>
-  </div>
-
-</div><!-- /lobbyScreen -->
-
-
-<!-- ════════════════════════════════════════════════════════════
-     SCREEN: ACTIVE CALL
-════════════════════════════════════════════════════════════ -->
-<div id="callScreen" style="display:none;">
-
-  <!-- Call header -->
-  <div style="padding:16px; text-align:center; background:linear-gradient(180deg,rgba(0,212,255,0.05),transparent);">
-    <div style="font-size:12px; color:#666; margin-bottom:4px;" id="callStatusText">🔗 Connecting...</div>
-    <div class="avatar-wrap" style="margin: 16px auto;">
-      <div class="avatar-ring"></div>
-      <div class="avatar-ring avatar-ring-2"></div>
-      <div class="avatar">👤</div>
-    </div>
-    <div id="peerName" style="font-size:22px;font-weight:700;color:#fff;margin-top:10px">User</div>
-    <div style="font-size:13px;color:#888;margin-top:4px">VoIP Protected Call</div>
-    <div id="callTimer" style="font-size:28px;font-weight:300;color:var(--cs-cyan);margin-top:8px;font-family:monospace">00:00</div>
-  </div>
-
-  <!-- LIVE FRAUD WARNING BANNER -->
-  <div id="fraudBanner">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-      <div style="font-size:24px">🚨</div>
-      <div>
-        <div id="warnTitle" style="font-weight:700;color:var(--cs-red);font-size:15px">FRAUD ALERT</div>
-        <div id="warnMsg" style="font-size:12px;color:#ff8888;margin-top:2px"></div>
+    <!-- 1-Tap Offline Demo Simulation Card -->
+    <div class="card" style="border-color: rgba(255,140,0,0.3);">
+      <div class="card-title" style="color:var(--cs-orange)">
+        <span>🎭 On-Device Live Demo</span>
+        <span style="font-size:10px;background:rgba(255,140,0,0.15);padding:2px 6px;border-radius:6px;">100% Offline</span>
       </div>
-      <div id="peakRiskBadge" class="risk-badge risk-HIGH" style="margin-left:auto;">91%</div>
-    </div>
-    <div id="warnKeywords" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
-    <div id="warnAdvice" style="font-size:12px;color:#ffaaaa;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,60,60,0.3)"></div>
-  </div>
-
-  <!-- Live Risk Panel -->
-  <div class="cs-card" style="margin:8px 12px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;">
-      <div>
-        <div style="font-size:11px;color:#888;margin-bottom:4px">LIVE RISK SCORE</div>
-        <div style="font-size:32px;font-weight:700;" id="liveRiskScore">0%</div>
+      <div style="font-size:12px;color:#cbd5e1;margin-bottom:10px;">
+        Test the real-time AI scam detection engine directly without needing 2 phones:
       </div>
-      <div style="text-align:right;">
-        <div id="liveRiskBadge" class="risk-badge risk-LOW">LOW</div>
-        <div id="liveCategoryText" style="font-size:11px;color:#888;margin-top:6px">—</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+        <button class="btn-preset" style="flex:1" onclick="simulateScam('OTP')">🔴 OTP Scam</button>
+        <button class="btn-preset" style="flex:1" onclick="simulateScam('KYC')">🔴 KYC Fraud</button>
+        <button class="btn-preset" style="flex:1" onclick="simulateScam('SAFE')">🟢 Normal Call</button>
+      </div>
+      <div id="demoOutput" style="display:none;background:#030712;padding:10px;border-radius:8px;border:1px solid #334155;margin-top:8px;"></div>
+    </div>
+
+    <!-- 2-Phone College Presentation Instructions -->
+    <div class="card">
+      <div class="card-title">📱 2-Phone College Demo Guide</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6">
+        1. <b>Phone 1:</b> Select <i>I'm User A</i> → tap <b>Online</b>.<br>
+        2. <b>Phone 2:</b> Select <i>I'm User B</i> → tap <b>Online</b> → tap <b>Call</b>.<br>
+        3. Phone 1 answers the call.<br>
+        4. Speak into Phone 2: <i>"Share your OTP to verify your KYC bank account."</i><br>
+        5. 🚨 <b>100% HIGH RISK alert triggers instantly on both phones in real time!</b>
       </div>
     </div>
-    <!-- Risk bar -->
-    <div style="height:6px;background:#222;border-radius:3px;margin-top:12px;overflow:hidden;">
-      <div id="riskBar" style="height:100%;width:0%;background:var(--cs-green);border-radius:3px;transition:all 0.5s;"></div>
+
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- ACTIVE CALL SCREEN                                            -->
+  <!-- ============================================================= -->
+  <div id="callScreen">
+    
+    <div class="call-header">
+      <div class="avatar-wrap">
+        <div class="avatar-ring"></div>
+        <div class="avatar-core">👤</div>
+      </div>
+      <div id="callPeerName" class="call-peer">User B</div>
+      <div class="call-sub">🛡️ CallShield AI VoIP Protected</div>
+      <div id="callTimer" class="call-timer">00:00</div>
     </div>
-    <!-- Latency -->
-    <div class="latency-bar" style="margin-top:6px;">Analysis latency: <span id="latencyDisplay">—</span></div>
-  </div>
 
-  <!-- Live Transcript Panel -->
-  <div class="cs-card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div style="font-size:13px;color:#888;font-weight:600">🎙️ Live Transcript</div>
-      <div id="recIndicator" style="font-size:11px;color:#555;">● Listening...</div>
+    <!-- Real-Time Pulsating Fraud Alert Banner -->
+    <div id="fraudBanner">
+      <div class="fraud-title">
+        <h3>🚨 SCAM CONVERSATION DETECTED!</h3>
+        <span id="bannerScoreBadge" class="fraud-score-badge">95%</span>
+      </div>
+      <div id="bannerMessage" class="fraud-msg">
+        Warning: The caller is asking for sensitive OTP / Banking credentials. DO NOT SHARE!
+      </div>
+      <div id="bannerKeywords" class="fraud-kws"></div>
     </div>
-    <div id="transcriptPanel" style="max-height:160px;overflow-y:auto;"></div>
-  </div>
 
-  <!-- Risk Timeline -->
-  <div class="cs-card">
-    <div style="font-size:13px;color:#888;font-weight:600;margin-bottom:10px;">📈 Risk Timeline</div>
-    <div id="timelinePanel" style="max-height:200px;overflow-y:auto;">
-      <div style="color:#555;font-size:13px;text-align:center;padding:20px;">Timeline will appear as the call progresses...</div>
+    <!-- Live Risk Gauge Card -->
+    <div class="card">
+      <div class="card-title">📊 Live Risk Analysis</div>
+      <div class="risk-meter">
+        <div>
+          <div style="font-size:11px;color:#64748b">PEAK THREAT SCORE</div>
+          <div id="riskScoreText" class="risk-score">0%</div>
+        </div>
+        <div style="text-align:right">
+          <span id="riskLevelBadge" class="risk-badge risk-LOW">LOW RISK</span>
+          <div id="riskCategoryText" style="font-size:11px;color:#94a3b8;margin-top:4px">—</div>
+        </div>
+      </div>
+      <div class="progress-bar-bg">
+        <div id="progressBarFill" class="progress-bar-fill"></div>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:6px;text-align:right">
+        Engine latency: <span id="engineLatency">12 ms</span>
+      </div>
     </div>
-  </div>
 
-  <!-- Indicators panel -->
-  <div class="cs-card" id="indicatorsCard" style="display:none;">
-    <div style="font-size:13px;color:#888;font-weight:600;margin-bottom:10px;">⚠️ Detected Indicators</div>
-    <div id="indicatorsList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-  </div>
-
-  <!-- Call Controls -->
-  <div class="call-controls">
-    <button class="ctrl-btn ctrl-mute" id="muteBtn" onclick="toggleMute()" title="Mute">🎙️</button>
-    <button class="ctrl-btn ctrl-end" onclick="endCall()" title="End Call" style="width:72px;height:72px;font-size:26px;">📵</button>
-    <button class="ctrl-btn ctrl-speaker" id="speakerBtn" onclick="toggleSpeaker()" title="Speaker">🔊</button>
-  </div>
-
-  <!-- AI Shield badge -->
-  <div style="text-align:center;margin-bottom:10px;">
-    <span style="font-size:11px;color:#444;background:#111;padding:5px 12px;border-radius:20px;border:1px solid #222;">
-      🛡️ CallShield AI Protection Active — <span id="protectionStatus" style="color:var(--cs-green)">LIVE</span>
-    </span>
-  </div>
-
-  <!-- Report Scam button (shown only during/after HIGH risk) -->
-  <div id="reportBtnWrap" style="text-align:center;display:none;margin-bottom:16px;">
-    <button onclick="openReportModal()" style="background:rgba(255,60,60,0.1);border:1px solid var(--cs-red);color:var(--cs-red);border-radius:10px;padding:8px 20px;cursor:pointer;font-size:13px;">
-      🚩 Report Scam Call
-    </button>
-  </div>
-
-</div><!-- /callScreen -->
-
-
-<!-- ════════════════════════════════════════════════════════════
-     REPORT SCAM MODAL
-════════════════════════════════════════════════════════════ -->
-<div id="reportModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9998;align-items:center;justify-content:center;">
-  <div class="cs-card" style="width:320px;margin:0;border-color:rgba(255,60,60,0.4);">
-    <div style="font-size:16px;font-weight:700;color:var(--cs-red);margin-bottom:16px;">🚩 Report Scam Call</div>
-    <div style="font-size:12px;color:#888;margin-bottom:10px;">Call ID: <span id="reportCallId" style="color:var(--cs-cyan)">—</span></div>
-    <select id="reportCategory" style="width:100%;background:#111;border:1px solid #333;color:#eee;padding:8px;border-radius:8px;margin-bottom:10px;">
-      <option value="">Select Scam Category...</option>
-      <option>OTP Scam</option>
-      <option>KYC Fraud</option>
-      <option>Payment Fraud</option>
-      <option>Banking Fraud</option>
-      <option>Lottery Scam</option>
-      <option>Government Impersonation</option>
-      <option>Job Scam</option>
-      <option>Insurance Fraud</option>
-      <option>Other</option>
-    </select>
-    <textarea id="reportDesc" placeholder="Describe what happened (optional)..." style="width:100%;background:#111;border:1px solid #333;color:#eee;border-radius:8px;padding:8px;resize:vertical;min-height:80px;box-sizing:border-box;font-size:13px;"></textarea>
-    <div style="display:flex;gap:10px;margin-top:12px;">
-      <button onclick="submitReport()" style="flex:1;background:var(--cs-red);border:none;color:#fff;font-weight:700;padding:10px;border-radius:10px;cursor:pointer;">Submit Report</button>
-      <button onclick="document.getElementById('reportModal').style.display='none'" style="flex:1;background:#222;border:1px solid #333;color:#aaa;padding:10px;border-radius:10px;cursor:pointer;">Cancel</button>
+    <!-- Live Transcript Card -->
+    <div class="card">
+      <div class="card-title">
+        <span>🎙️ Live Intercepted Speech</span>
+        <span id="sttStatusDot" style="color:var(--cs-green);font-size:10px">● Listening</span>
+      </div>
+      <div id="transcriptPanel" class="scroll-panel">
+        <div style="color:#64748b;text-align:center;padding:16px 0;">
+          Speak to analyze conversation in real time...
+        </div>
+      </div>
     </div>
-    <div id="reportStatus" style="margin-top:8px;font-size:12px;text-align:center;"></div>
+
+    <!-- Risk Timeline Card -->
+    <div class="card">
+      <div class="card-title">📈 Threat Timeline</div>
+      <div id="timelinePanel" class="scroll-panel">
+        <div style="color:#64748b;text-align:center;padding:12px 0;">No risk spikes detected yet.</div>
+      </div>
+    </div>
+
+    <!-- Call Controls -->
+    <div class="call-actions">
+      <button id="btnMute" class="ctrl-btn btn-mute" onclick="toggleMute()" title="Mute">🎙️</button>
+      <button class="ctrl-btn btn-end" onclick="endCall()" title="End Call">📵</button>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Incoming Call Dialog -->
+<div id="incomingModal">
+  <div class="modal-box">
+    <div style="font-size:48px;margin-bottom:10px">📞</div>
+    <div style="font-size:13px;color:#94a3b8">Incoming CallShield VoIP Call</div>
+    <div id="incomingCallerId" style="font-size:20px;font-weight:700;color:#fff;margin:6px 0 20px">User A</div>
+    <div style="display:flex;gap:10px">
+      <button class="btn-primary" style="flex:1" onclick="acceptCall()">✅ Answer</button>
+      <button class="btn-danger" style="flex:1" onclick="rejectCall()">❌ Reject</button>
+    </div>
   </div>
 </div>
 
-</div><!-- /voip-wrapper -->
+<!-- Audio element for peer voice -->
+<audio id="remoteAudio" autoplay playsinline></audio>
 
-<!-- Hidden audio element for remote peer stream -->
-<audio id="remoteAudio" autoplay playsinline style="display:none;"></audio>
-
-{% endblock %}
-
-
-{% block extra_js %}
-<!-- Socket.IO client -->
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script>
-/* ════════════════════════════════════════════════════════════════
-   CallShield VoIP — Complete Client Script
-   ════════════════════════════════════════════════════════════════
-   Architecture:
-     webkitSpeechRecognition (live mic) → analyzeChunk() → Flask
-     → FraudDetector → SocketIO push → updateRiskUI()
-   ================================================================ */
+/* =========================================================================
+   CALLSHIELD AI — HYBRID WEBRTC + ON-DEVICE LIVE FRAUD DETECTION ENGINE
+   ========================================================================= */
 
-'use strict';
+// Configuration & Fraud Vocabulary (Matches Flask ML Model weights)
+const SCAM_VOCABULARY = {
+  'otp': 4.5, 'one time password': 4.8, 'verification code': 4.5,
+  'pin': 4.5, 'cvv': 4.8, 'card number': 4.0, 'atm pin': 4.8,
+  'kyc': 4.2, 'kyc verification': 4.6, 'pan card': 3.5, 'aadhaar': 3.5,
+  'bank account': 3.8, 'account number': 3.8, 'ifsc': 3.5,
+  'upi': 3.8, 'google pay': 3.8, 'phonepe': 3.8, 'paytm': 3.8, 'transfer money': 4.0, 'send money': 3.8,
+  'blocked': 4.2, 'account suspended': 4.5, 'freeze': 4.0, 'unblock': 4.2,
+  'urgent': 3.5, 'immediately': 3.5, 'right now': 3.5, 'jaldi': 3.5, 'turant': 3.5,
+  'police': 3.8, 'arrest warrant': 4.8, 'cbi': 4.5, 'customs department': 4.2,
+  'lottery': 4.5, 'prize won': 4.2, 'reward money': 4.0,
+  'anydesk': 4.8, 'teamviewer': 4.8, 'remote access': 4.5
+};
 
-/* ── Config ── */
-const SERVER_BASE = window.location.origin;
-const STUN_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun.cloudflare.com:3478' }
-];
-
-/* ── State ── */
-let myUserId     = '';
-let myUserName   = '';
-let currentCallId = null;
-let peerConnection = null;
-let localStream   = null;
-let recognition   = null;
+let myPeer = null;
+let currentCall = null;
+let incomingCallObj = null;
+let localMediaStream = null;
+let recognition = null;
+let isMuted = false;
+let callStartTime = null;
 let callTimerInterval = null;
-let callStartTs   = null;
-let isMuted       = false;
-let pollInterval  = null;
-let heartbeatInterval = null;
-let onlineCheckInterval = null;
-let isRegistered  = false;
-let socket        = null;
-let peakRisk      = 0;
-let activeTab     = 'lobby';
+let peakRisk = 0;
+let detectedIndicators = new Set();
 
-/* ═══════════════════════════════════════════════════════════════
-   SOCKET.IO — Real-Time Connection
-════════════════════════════════════════════════════════════════ */
-function initSocketIO() {
-  try {
-    socket = io(SERVER_BASE + '/voip', {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000
-    });
-
-    socket.on('connect', () => {
-      console.log('[SocketIO] Connected:', socket.id);
-      if (myUserId) {
-        socket.emit('user_online', { user_id: myUserId });
-      }
-    });
-
-    socket.on('risk_update', (data) => {
-      console.log('[SocketIO] risk_update received:', data);
-      if (data.type === 'incoming_call') {
-        handleIncomingCall(data);
-      } else if (data.type === 'call_answered') {
-        handleCallAnswered(data);
-      } else if (data.type === 'call_ended' || data.type === 'call_rejected') {
-        handleCallEnded(data);
-      } else if (data.is_fraud !== undefined) {
-        updateRiskUI(data);
-      }
-    });
-
-    socket.on('disconnect', () => {
-      console.log('[SocketIO] Disconnected — falling back to polling');
-    });
-
-    socket.on('connect_error', (err) => {
-      console.log('[SocketIO] Connection error (will use polling):', err.message);
-    });
-
-  } catch (e) {
-    console.warn('[SocketIO] Not available, using REST polling:', e);
-  }
+// ── 1. User Presets ────────────────────────────────────────────────────────
+function selectUserPreset(id) {
+  document.getElementById('myPeerId').value = id;
+  document.getElementById('targetPeerId').value = (id === 'User_A') ? 'User_B' : 'User_A';
+  document.querySelectorAll('.btn-preset-row .btn-preset').forEach(b => {
+    b.classList.toggle('active', b.textContent.includes(id.replace('_', ' ')));
+  });
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   IDENTITY & REGISTRATION
-════════════════════════════════════════════════════════════════ */
-function setIdentity(uid, name) {
-  document.getElementById('myUserId').value   = uid;
-  document.getElementById('myUserName').value = name;
-}
+// ── 2. PeerJS Cloud Connection (100% Serverless Signaling) ─────────────────
+function connectPeer() {
+  const uid = document.getElementById('myPeerId').value.trim();
+  if (!uid) { alert('Enter User ID'); return; }
 
-async function registerMe() {
-  const uid  = document.getElementById('myUserId').value.trim();
-  const name = document.getElementById('myUserName').value.trim() || uid;
-  if (!uid) { alert('Please enter your User ID'); return; }
+  if (myPeer) { myPeer.destroy(); }
 
-  myUserId   = uid;
-  myUserName = name;
+  document.getElementById('peerStateText').textContent = 'Connecting...';
 
-  try {
-    const r = await fetch('/api/voip/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: uid, name })
-    });
-    const d = await r.json();
-    if (d.success) {
-      isRegistered = true;
-      document.getElementById('myStatus').innerHTML = `<span style="color:var(--cs-green)">✅ Online as <b>${name}</b></span>`;
-      document.getElementById('onlineUsersCard').style.display = 'block';
-
-      // Join personal SocketIO room
-      if (socket) socket.emit('user_online', { user_id: uid });
-
-      // Start heartbeat + incoming call polling
-      startHeartbeat();
-      startIncomingPoll();
-      refreshUsers();
+  // Connects to global free WebRTC cloud signaling (0.peerjs.com)
+  myPeer = new Peer(uid, {
+    debug: 1,
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' }
+      ]
     }
-  } catch (e) {
-    document.getElementById('myStatus').innerHTML = `<span style="color:var(--cs-red)">❌ Failed to connect</span>`;
-  }
+  });
+
+  myPeer.on('open', (id) => {
+    document.getElementById('peerStateText').textContent = '● Online: ' + id;
+    document.getElementById('peerStateText').style.color = 'var(--cs-green)';
+    document.getElementById('statusBadge').textContent = '● ' + id + ' (Online)';
+  });
+
+  myPeer.on('call', (call) => {
+    incomingCallObj = call;
+    document.getElementById('incomingCallerId').textContent = call.peer;
+    document.getElementById('incomingModal').classList.add('active');
+    vibrate([300, 150, 300]);
+    playChime(660);
+  });
+
+  myPeer.on('error', (err) => {
+    document.getElementById('peerStateText').textContent = 'Error: ' + err.type;
+    document.getElementById('peerStateText').style.color = 'var(--cs-red)';
+  });
 }
 
-function startHeartbeat() {
-  if (heartbeatInterval) clearInterval(heartbeatInterval);
-  heartbeatInterval = setInterval(async () => {
-    if (!myUserId) return;
-    try {
-      await fetch('/api/voip/heartbeat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: myUserId })
-      });
-    } catch (e) {}
-  }, 20000);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ONLINE USERS
-════════════════════════════════════════════════════════════════ */
-async function refreshUsers() {
-  try {
-    const r = await fetch(`/api/voip/online_users?current_user=${encodeURIComponent(myUserId)}`);
-    const d = await r.json();
-    const list = document.getElementById('onlineUsersList');
-    if (!d.users || d.users.length === 0) {
-      list.innerHTML = '<div style="color:#555;font-size:13px;">No other users online. Share the app link and ask them to join.</div>';
-      return;
-    }
-    list.innerHTML = d.users.map(u => `
-      <div class="user-card">
-        <div>
-          <span class="status-dot ${u.status}"></span>
-          <span style="font-weight:600">${u.name}</span>
-          <span style="color:#555;font-size:11px;margin-left:6px">${u.user_id}</span>
-        </div>
-        <button class="call-user-btn" onclick="initiateCallTo('${u.user_id}', '${u.name}')">📞 Call</button>
-      </div>
-    `).join('');
-  } catch (e) {
-    document.getElementById('onlineUsersList').innerHTML = '<div style="color:#555;font-size:13px;">Unable to fetch users.</div>';
-  }
-}
-
-function callByID() {
-  const target = document.getElementById('callTargetId').value.trim();
-  if (!target) { alert('Enter a User ID'); return; }
-  initiateCallTo(target, target);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   WEBRTC — OUTGOING CALL
-════════════════════════════════════════════════════════════════ */
-async function initiateCallTo(targetUserId, targetName) {
-  if (!isRegistered) { alert('Please go online first!'); return; }
-  if (!targetUserId) { alert('Enter a target User ID'); return; }
-
-  document.getElementById('peerName').textContent = targetName || targetUserId;
-  document.getElementById('callStatusText').textContent = '📡 Calling...';
+// ── 3. Start Call ─────────────────────────────────────────────────────────
+async function startCall() {
+  const targetId = document.getElementById('targetPeerId').value.trim();
+  if (!targetId) { alert('Enter recipient ID'); return; }
+  if (!myPeer || myPeer.disconnected) { connectPeer(); }
 
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-  } catch (e) {
-    alert('❌ Microphone access denied. Please allow microphone to make VoIP calls.');
+    localMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch(e) {
+    alert('Microphone permission required for VoIP calls.');
     return;
   }
 
-  peerConnection = new RTCPeerConnection({ iceServers: STUN_SERVERS });
-  localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
-
-  peerConnection.ontrack = (event) => {
-    document.getElementById('remoteAudio').srcObject = event.streams[0];
-  };
-
-  const offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(offer);
-
-  // Wait for ICE gathering
-  await new Promise(resolve => {
-    peerConnection.onicecandidate = async (e) => {
-      if (!e.candidate) { resolve(); return; }
-      // candidates will be sent after call_id is known
-    };
-    setTimeout(resolve, 2000); // timeout fallback
-  });
-
-  // Send offer to server
-  try {
-    const r = await fetch('/api/voip/initiate_call', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        caller_id:   myUserId,
-        callee_id:   targetUserId,
-        caller_name: myUserName,
-        offer:       peerConnection.localDescription
-      })
-    });
-    const d = await r.json();
-    if (!d.success) { throw new Error(d.message); }
-
-    currentCallId = d.call.call_id;
-    if (socket) socket.emit('join_call', { call_id: currentCallId, user_id: myUserId });
-
-    showCallScreen('outgoing');
-    waitForAnswer(targetUserId, targetName);
-  } catch (e) {
-    alert('❌ Failed to initiate call: ' + e.message);
-    cleanupCall();
-  }
+  const call = myPeer.call(targetId, localMediaStream);
+  setupActiveCall(call, targetId);
 }
 
-async function waitForAnswer(targetId, targetName) {
-  let attempts = 0;
-  const maxAttempts = 90; // 90 × 1s = 90 seconds
-  const poll = async () => {
-    if (!currentCallId || attempts > maxAttempts) {
-      handleCallEnded({ reason: 'No answer' });
-      return;
-    }
-    attempts++;
-    try {
-      const r = await fetch(`/api/voip/check_call_status?call_id=${encodeURIComponent(currentCallId)}`);
-      const d = await r.json();
-      if (d.status === 'connected' && d.answer) {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(d.answer));
-        document.getElementById('callStatusText').textContent = '🛡️ CallShield Protected — Connected';
-        startCallTimer();
-        startSpeechRecognition();
-        startThreatPolling();
-      } else if (d.status === 'rejected' || d.status === 'ended') {
-        handleCallEnded({ reason: d.status });
-      } else {
-        setTimeout(poll, 1000);
-      }
-    } catch (e) {
-      setTimeout(poll, 2000);
-    }
-  };
-  poll();
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   WEBRTC — INCOMING CALL
-════════════════════════════════════════════════════════════════ */
-let _incomingCallData = null;
-
-function startIncomingPoll() {
-  if (onlineCheckInterval) clearInterval(onlineCheckInterval);
-  onlineCheckInterval = setInterval(async () => {
-    if (!myUserId || currentCallId) return;
-    try {
-      const r = await fetch(`/api/voip/check_incoming_call?user_id=${encodeURIComponent(myUserId)}`);
-      const d = await r.json();
-      if (d.has_call && d.call) {
-        handleIncomingCall(d.call);
-      }
-    } catch (e) {}
-  }, 2000);
-}
-
-function handleIncomingCall(data) {
-  if (currentCallId) return; // already in a call
-  _incomingCallData = data;
-  document.getElementById('incomingCallerName').textContent = data.caller_name || data.caller_id || 'Unknown';
-  document.getElementById('incomingModal').classList.add('active');
-  vibrateDevice([400, 200, 400]);
-  playRingtone();
-}
-
-async function answerCall() {
+// ── 4. Accept / Reject Call ───────────────────────────────────────────────
+async function acceptCall() {
   document.getElementById('incomingModal').classList.remove('active');
-  if (!_incomingCallData) return;
-  const data = _incomingCallData;
+  if (!incomingCallObj) return;
 
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-  } catch (e) {
-    alert('❌ Microphone access denied.'); return;
+    localMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch(e) {
+    alert('Microphone permission required.');
+    return;
   }
 
-  peerConnection = new RTCPeerConnection({ iceServers: STUN_SERVERS });
-  localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
-  peerConnection.ontrack = (event) => {
-    document.getElementById('remoteAudio').srcObject = event.streams[0];
-  };
+  incomingCallObj.answer(localMediaStream);
+  setupActiveCall(incomingCallObj, incomingCallObj.peer);
+  incomingCallObj = null;
+}
 
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-  const answer = await peerConnection.createAnswer();
-  await peerConnection.setLocalDescription(answer);
+function rejectCall() {
+  document.getElementById('incomingModal').classList.remove('active');
+  if (incomingCallObj) {
+    incomingCallObj.close();
+    incomingCallObj = null;
+  }
+}
 
-  // ICE exchange
-  peerConnection.onicecandidate = async (e) => {
-    if (e.candidate && currentCallId) {
-      await fetch('/api/voip/ice_candidate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ call_id: currentCallId, role: 'callee', candidate: e.candidate })
-      });
-    }
-  };
+// ── 5. Setup Active Call ──────────────────────────────────────────────────
+function setupActiveCall(call, peerName) {
+  currentCall = call;
+  document.getElementById('lobbyScreen').style.display = 'none';
+  document.getElementById('callScreen').style.display = 'block';
+  document.getElementById('callPeerName').textContent = peerName;
 
-  await fetch('/api/voip/answer_call', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ call_id: data.call_id, answer: peerConnection.localDescription })
+  call.on('stream', (remoteStream) => {
+    document.getElementById('remoteAudio').srcObject = remoteStream;
   });
 
-  currentCallId = data.call_id;
-  document.getElementById('peerName').textContent = data.caller_name || data.caller_id || 'Caller';
-  if (socket) socket.emit('join_call', { call_id: currentCallId, user_id: myUserId });
+  call.on('close', () => { endCall(); });
+  call.on('error', () => { endCall(); });
 
-  showCallScreen('incoming');
-  document.getElementById('callStatusText').textContent = '🛡️ CallShield Protected — Connected';
   startCallTimer();
-  startSpeechRecognition();
-  startThreatPolling();
-  _incomingCallData = null;
+  startSpeechInterceptor();
 }
 
-async function rejectCall() {
-  document.getElementById('incomingModal').classList.remove('active');
-  if (_incomingCallData) {
-    await fetch('/api/voip/reject_call', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ call_id: _incomingCallData.call_id })
-    });
-    _incomingCallData = null;
+// ── 6. End Call ───────────────────────────────────────────────────────────
+function endCall() {
+  if (currentCall) { try { currentCall.close(); } catch(e){} currentCall = null; }
+  if (localMediaStream) {
+    localMediaStream.getTracks().forEach(t => t.stop());
+    localMediaStream = null;
   }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   CALL END & CLEANUP
-════════════════════════════════════════════════════════════════ */
-async function endCall() {
-  if (currentCallId) {
-    try {
-      const r = await fetch('/api/voip/end_call', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ call_id: currentCallId })
-      });
-      const d = await r.json();
-      if (d.summary) showCallSummary(d.summary);
-    } catch (e) {}
-  }
-  cleanupCall();
-}
-
-function cleanupCall() {
-  if (recognition)  { try { recognition.stop(); } catch(e) {} recognition = null; }
-  if (localStream)  { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-  if (peerConnection) { peerConnection.close(); peerConnection = null; }
+  if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
   if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
-  if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
-  currentCallId = null;
-  peakRisk = 0;
+
   document.getElementById('callScreen').style.display = 'none';
   document.getElementById('lobbyScreen').style.display = 'block';
   document.getElementById('fraudBanner').classList.remove('active');
+  peakRisk = 0;
+  updateRiskDisplay(0, 'LOW RISK', '—');
 }
 
-function handleCallEnded(data) {
-  if (currentCallId) cleanupCall();
-}
-function handleCallAnswered(data) {
-  // handled in waitForAnswer via polling
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   CALL TIMER
-════════════════════════════════════════════════════════════════ */
+// ── 7. Call Timer ─────────────────────────────────────────────────────────
 function startCallTimer() {
-  callStartTs = Date.now();
+  callStartTime = Date.now();
   if (callTimerInterval) clearInterval(callTimerInterval);
   callTimerInterval = setInterval(() => {
-    const elapsed = Math.floor((Date.now() - callStartTs) / 1000);
+    const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
     const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
     const s = String(elapsed % 60).padStart(2, '0');
     document.getElementById('callTimer').textContent = `${m}:${s}`;
   }, 1000);
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   SPEECH RECOGNITION — LIVE AUDIO INTERCEPTION
-════════════════════════════════════════════════════════════════ */
-function startSpeechRecognition() {
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    document.getElementById('recIndicator').textContent = '⚠️ Speech API not available';
+function toggleMute() {
+  isMuted = !isMuted;
+  if (localMediaStream) {
+    localMediaStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+  }
+  const btn = document.getElementById('btnMute');
+  btn.textContent = isMuted ? '🔇' : '🎙️';
+  btn.classList.toggle('active', isMuted);
+}
+
+// ── 8. Real-Time Speech Recognition & Fraud Interception ─────────────────
+function startSpeechInterceptor() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    document.getElementById('sttStatusDot').textContent = '● STT Unsupported';
     return;
   }
 
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SR();
   recognition.lang = 'en-IN';
   recognition.continuous = true;
   recognition.interimResults = true;
-  recognition.maxAlternatives = 1;
-
-  let lastFinalText = '';
-  let chunkBuffer   = '';
-  let chunkTimeout  = null;
-
-  recognition.onstart = () => {
-    document.getElementById('recIndicator').innerHTML = '<span style="color:var(--cs-green)">● Recording</span>';
-  };
 
   recognition.onresult = (event) => {
     let interim = '';
-    let final_   = '';
+    let final_ = '';
 
     for (let i = event.resultIndex; i < event.results.length; i++) {
-      const t = event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        final_ += t + ' ';
-      } else {
-        interim += t;
-      }
+      const text = event.results[i][0].transcript;
+      if (event.results[i].isFinal) final_ += text + ' ';
+      else interim += text;
     }
 
-    // Instant keyword check on interim (don't wait for sentence to end)
-    const combined = (final_ + interim).toLowerCase();
-    const INSTANT_KEYWORDS = ['otp','pin','cvv','password','kyc','upi','transfer money','send money','account number','credit card','debit card','verify your','share your','blocked'];
-    for (const kw of INSTANT_KEYWORDS) {
-      if (combined.includes(kw)) {
-        analyzeChunk(combined, 'CALLER');
-        break;
-      }
-    }
-
-    if (final_) {
-      chunkBuffer += final_;
-      clearTimeout(chunkTimeout);
-      chunkTimeout = setTimeout(() => {
-        if (chunkBuffer.trim()) {
-          analyzeChunk(chunkBuffer.trim(), 'CALLER');
-          chunkBuffer = '';
-        }
-      }, 2500); // send chunk every 2.5s of silence
+    const currentSpoken = (final_ + ' ' + interim).trim();
+    if (currentSpoken) {
+      runRealTimeFraudEngine(currentSpoken, final_ ? 'Final' : 'Interim');
     }
   };
 
   recognition.onerror = (e) => {
-    if (e.error !== 'no-speech') {
-      document.getElementById('recIndicator').innerHTML = `<span style="color:#ff8888">⚠️ STT: ${e.error}</span>`;
+    if (e.error !== 'no-speech' && currentCall) {
+      try { recognition.start(); } catch(ex){}
     }
   };
 
   recognition.onend = () => {
-    // Auto-restart if call is still active
-    if (currentCallId) {
-      try { recognition.start(); } catch(e) {}
-    }
+    if (currentCall) { try { recognition.start(); } catch(ex){} }
   };
 
-  recognition.start();
+  try { recognition.start(); } catch(e){}
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   FRAUD ANALYSIS — CHUNK SENDER
-════════════════════════════════════════════════════════════════ */
-async function analyzeChunk(text, speakerId) {
-  if (!text || !currentCallId) return;
+// ── 9. On-Device AI Fraud Detection Engine (Instant Scoring) ──────────────
+function runRealTimeFraudEngine(transcript, type) {
   const t0 = performance.now();
+  const lower = transcript.toLowerCase();
+  let scoreSum = 0;
+  let matches = [];
 
-  try {
-    const r = await fetch('/api/voip/analyze_chunk', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        call_id:    currentCallId,
-        speaker_id: speakerId || 'CALLER',
-        transcript: text,
-        chunk_ms:   2500
-      })
-    });
-    const d = await r.json();
-    if (d.success && d.analysis) {
-      // Update transcript panel immediately
-      addTranscriptEntry(speakerId, text, d.analysis.fraud_score);
-      // If SocketIO not working, update UI from REST response
-      updateRiskUI(d.analysis);
-    }
-  } catch (e) {
-    console.warn('analyzeChunk error:', e);
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   THREAT POLLING (fallback when SocketIO unavailable)
-════════════════════════════════════════════════════════════════ */
-function startThreatPolling() {
-  if (pollInterval) clearInterval(pollInterval);
-  pollInterval = setInterval(async () => {
-    if (!currentCallId) return;
-    try {
-      const r = await fetch(`/api/voip/threat_status?call_id=${encodeURIComponent(currentCallId)}`);
-      const d = await r.json();
-      if (d.success) {
-        // Update peak risk from server
-        if (d.peak_risk !== undefined) {
-          updateRiskBarOnly(d.peak_risk, d.risk_level, d.category, d.latency_ms);
-        }
-        // Update indicators
-        if (d.indicators && d.indicators.length > 0) {
-          updateIndicators(d.indicators);
-        }
-        // Update timeline (last 5)
-        if (d.timeline) {
-          d.timeline.forEach(addTimelineEntry);
-        }
-        // Show threat if not already shown
-        if (d.threat && d.threat.is_fraud) {
-          showFraudBanner(d.threat);
-        }
-      }
-    } catch (e) {}
-  }, 1500);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   UI UPDATES
-════════════════════════════════════════════════════════════════ */
-function updateRiskUI(analysis) {
-  const score    = parseFloat(analysis.fraud_score || analysis.peak_risk || 0);
-  const level    = analysis.risk_level || (score >= 65 ? 'HIGH' : score >= 40 ? 'MEDIUM' : 'LOW');
-  const category = analysis.category || '—';
-  const latency  = analysis.latency_ms;
-
-  updateRiskBarOnly(score, level, category, latency);
-
-  // Add timeline entry if available
-  if (analysis.timeline_entry) {
-    addTimelineEntry(analysis.timeline_entry);
-  }
-
-  // Show fraud banner
-  if (analysis.is_fraud) {
-    showFraudBanner(analysis);
-    if (score >= 65) {
-      document.getElementById('reportBtnWrap').style.display = 'block';
+  for (const [kw, weight] of Object.entries(SCAM_VOCABULARY)) {
+    if (lower.includes(kw)) {
+      scoreSum += weight * 18;
+      matches.push(kw);
+      detectedIndicators.add(kw);
     }
   }
 
-  // Update indicators
-  if (analysis.indicators) {
-    updateIndicators(analysis.indicators);
-  } else if (analysis.keywords_found && analysis.keywords_found.length > 0) {
-    updateIndicators(analysis.keywords_found);
+  const calculatedScore = Math.min(Math.round(scoreSum), 100);
+  const latency = Math.round(performance.now() - t0);
+  document.getElementById('engineLatency').textContent = `${latency} ms`;
+
+  let riskLevel = 'LOW RISK';
+  let category = 'Normal';
+  if (calculatedScore >= 65) {
+    riskLevel = 'HIGH RISK';
+    category = 'Sensitive Credential Theft / Scam';
+  } else if (calculatedScore >= 35) {
+    riskLevel = 'MEDIUM RISK';
+    category = 'Suspicious Conversation';
+  }
+
+  if (calculatedScore > peakRisk) {
+    peakRisk = calculatedScore;
+    updateRiskDisplay(peakRisk, riskLevel, category);
+  }
+
+  // Append to Live Transcript
+  if (type === 'Final') {
+    appendTranscript(transcript, calculatedScore >= 35);
+  }
+
+  // Trigger Live Alarm if Fraud Detected
+  if (calculatedScore >= 35 || matches.length > 0) {
+    triggerFraudAlarm(calculatedScore, matches, transcript);
   }
 }
 
-function updateRiskBarOnly(score, level, category, latency) {
-  // Never go down during active call (show peak)
-  if (score > peakRisk) peakRisk = score;
+function updateRiskDisplay(score, level, category) {
+  document.getElementById('riskScoreText').textContent = `${score}%`;
+  const badge = document.getElementById('riskLevelBadge');
+  badge.textContent = level;
+  badge.className = `risk-badge risk-${level.replace(' ', '')}`;
 
-  document.getElementById('liveRiskScore').textContent = `${Math.round(peakRisk)}%`;
-  document.getElementById('liveCategoryText').textContent = category || '—';
+  const bar = document.getElementById('progressBarFill');
+  bar.style.width = `${score}%`;
+  bar.style.background = (score >= 65) ? 'var(--cs-red)' : (score >= 35) ? 'var(--cs-yellow)' : 'var(--cs-green)';
 
-  const riskBar = document.getElementById('riskBar');
-  riskBar.style.width   = `${Math.min(peakRisk, 100)}%`;
-  riskBar.style.background = peakRisk >= 65 ? 'var(--cs-red)' : peakRisk >= 40 ? 'var(--cs-yellow)' : 'var(--cs-green)';
-
-  const badge = document.getElementById('liveRiskBadge');
-  const dispLevel = level || (peakRisk >= 65 ? 'HIGH' : peakRisk >= 40 ? 'MEDIUM' : 'LOW');
-  badge.textContent = dispLevel;
-  badge.className = `risk-badge risk-${dispLevel.replace('-', '')}`;
-
-  if (latency !== null && latency !== undefined) {
-    document.getElementById('latencyDisplay').textContent = `${latency} ms`;
-  }
+  document.getElementById('riskCategoryText').textContent = category;
 }
 
-function showFraudBanner(analysis) {
+function triggerFraudAlarm(score, matches, snippet) {
   const banner = document.getElementById('fraudBanner');
-  document.getElementById('warnTitle').textContent    = analysis.warning_title || '🚨 FRAUD DETECTED';
-  document.getElementById('warnMsg').textContent      = analysis.warning_message || '';
-  document.getElementById('warnAdvice').textContent   = analysis.detailed_advice || '';
-
-  const score = parseFloat(analysis.fraud_score || analysis.peak_risk || 0);
-  document.getElementById('peakRiskBadge').textContent = `${Math.round(Math.max(score, peakRisk))}%`;
-
-  const kwContainer = document.getElementById('warnKeywords');
-  const kws = analysis.keywords_found || analysis.indicators || [];
-  kwContainer.innerHTML = kws.slice(0, 6).map(k =>
-    `<span style="background:rgba(255,60,60,0.2);border:1px solid rgba(255,60,60,0.4);color:#ff8888;padding:3px 8px;border-radius:12px;font-size:11px;text-transform:uppercase;">${k}</span>`
-  ).join('');
-
   banner.classList.add('active');
-  vibrateDevice([300, 150, 300, 150, 500]);
+  document.getElementById('bannerScoreBadge').textContent = `${score}%`;
+
+  const kwWrap = document.getElementById('bannerKeywords');
+  kwWrap.innerHTML = matches.map(m => `<span class="kw-tag">${m}</span>`).join('');
+
+  // Audio chime & vibration
   playAlarmChime();
+  vibrate([300, 150, 300, 150, 400]);
+
+  // Append to timeline
+  appendTimeline(score, snippet, matches);
 }
 
-function addTranscriptEntry(speaker, text, risk) {
-  const panel = document.getElementById('transcriptPanel');
-  const isFraud = risk >= 35;
-  const div = document.createElement('div');
-  div.className = `transcript-line ${speaker}${isFraud ? ' fraud' : ''}`;
-  div.innerHTML = `
-    <div class="transcript-speaker">${speaker} · ${new Date().toLocaleTimeString()}</div>
-    <div>${escHtml(text)}</div>
+function appendTranscript(text, isDanger) {
+  const p = document.getElementById('transcriptPanel');
+  const d = document.createElement('div');
+  d.className = `transcript-bubble ${isDanger ? 'danger' : ''}`;
+  d.innerHTML = `
+    <div class="transcript-speaker">SPEAKER · ${new Date().toLocaleTimeString()}</div>
+    <div>${text}</div>
   `;
-  panel.appendChild(div);
-  panel.scrollTop = panel.scrollHeight;
+  p.appendChild(d);
+  p.scrollTop = p.scrollHeight;
 }
 
-let _lastTimelineElapsed = -1;
-function addTimelineEntry(entry) {
-  if (!entry || entry.elapsed_s === _lastTimelineElapsed) return;
-  _lastTimelineElapsed = entry.elapsed_s;
+let lastTimelineSec = -1;
+function appendTimeline(score, text, kws) {
+  const elapsed = Math.floor((Date.now() - (callStartTime || Date.now())) / 1000);
+  if (elapsed === lastTimelineSec) return;
+  lastTimelineSec = elapsed;
 
-  const panel = document.getElementById('timelinePanel');
-  // Remove placeholder
-  const placeholder = panel.querySelector('div[style*="text-align:center"]');
-  if (placeholder) placeholder.remove();
+  const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const s = String(elapsed % 60).padStart(2, '0');
 
-  const risk  = parseFloat(entry.risk || 0);
-  const level = (entry.level || '').toUpperCase();
-  const riskClass = risk >= 65 ? 'high' : risk >= 40 ? 'medium' : 'low';
-
-  const div = document.createElement('div');
-  div.className = 'timeline-entry';
-  div.innerHTML = `
-    <span class="tl-time">${entry.elapsed || entry.elapsed_s + 's'}</span>
-    <span class="tl-risk ${riskClass}">${Math.round(risk)}%</span>
-    <span class="tl-text">${escHtml(entry.snippet || '')}</span>
-    <span class="tl-speaker">${entry.speaker || ''}</span>
+  const p = document.getElementById('timelinePanel');
+  const d = document.createElement('div');
+  d.className = 'timeline-item';
+  d.innerHTML = `
+    <span style="color:var(--cs-cyan);font-weight:700">${m}:${s}</span>
+    <span style="color:var(--cs-red);font-weight:700">${score}% HIGH</span>
+    <span style="color:#94a3b8;font-size:11px">${kws.join(', ') || 'Alert'}</span>
   `;
-  panel.appendChild(div);
-  panel.scrollTop = panel.scrollHeight;
+  p.appendChild(d);
+  p.scrollTop = p.scrollHeight;
 }
 
-function updateIndicators(indicators) {
-  if (!indicators || indicators.length === 0) return;
-  const card = document.getElementById('indicatorsCard');
-  const list = document.getElementById('indicatorsList');
-  card.style.display = 'block';
-  const existing = new Set(Array.from(list.querySelectorAll('span')).map(s => s.dataset.kw));
-  indicators.forEach(kw => {
-    if (!existing.has(kw)) {
-      const span = document.createElement('span');
-      span.dataset.kw = kw;
-      span.style.cssText = 'background:rgba(255,140,0,0.1);border:1px solid rgba(255,140,0,0.4);color:var(--cs-orange);padding:4px 10px;border-radius:12px;font-size:12px;';
-      span.textContent = '⚠️ ' + kw;
-      list.appendChild(span);
-    }
-  });
-}
+// ── 10. 1-Tap Offline Simulation (Demo Mode) ──────────────────────────────
+function simulateScam(type) {
+  const out = document.getElementById('demoOutput');
+  out.style.display = 'block';
 
-function showCallSummary(summary) {
-  if (!summary) return;
-  alert(`📊 Call Summary\n\nDuration: ${Math.floor(summary.duration_s / 60)}m ${Math.floor(summary.duration_s % 60)}s\nFinal Risk: ${summary.final_risk}% (${summary.risk_level})\nCategory: ${summary.category}\nIndicators: ${(summary.indicators || []).join(', ') || 'None'}`);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   CALL CONTROLS
-════════════════════════════════════════════════════════════════ */
-function toggleMute() {
-  isMuted = !isMuted;
-  if (localStream) {
-    localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
-  }
-  const btn = document.getElementById('muteBtn');
-  btn.textContent = isMuted ? '🔇' : '🎙️';
-  btn.classList.toggle('muted', isMuted);
-}
-
-function toggleSpeaker() {
-  const audio = document.getElementById('remoteAudio');
-  document.getElementById('speakerBtn').textContent = '🔊';
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   SCREEN TRANSITIONS
-════════════════════════════════════════════════════════════════ */
-function showCallScreen(direction) {
-  document.getElementById('lobbyScreen').style.display = 'none';
-  document.getElementById('callScreen').style.display  = 'block';
-  document.getElementById('fraudBanner').classList.remove('active');
-  document.getElementById('transcriptPanel').innerHTML = '';
-  document.getElementById('timelinePanel').innerHTML = '<div style="color:#555;font-size:13px;text-align:center;padding:20px;">Timeline will appear as the call progresses...</div>';
-  document.getElementById('indicatorsCard').style.display = 'none';
-  document.getElementById('indicatorsList').innerHTML = '';
-  document.getElementById('reportBtnWrap').style.display = 'none';
-  document.getElementById('liveRiskScore').textContent = '0%';
-  document.getElementById('callTimer').textContent = '00:00';
-  peakRisk = 0;
-  _lastTimelineElapsed = -1;
-}
-
-function showTab(tab) {
-  activeTab = tab;
-  if (tab === 'history') {
-    document.getElementById('historyTab').style.display = 'block';
-    loadCallHistory();
+  let text = '';
+  if (type === 'OTP') {
+    text = "Please share your 6-digit OTP immediately, otherwise your bank account will be permanently blocked!";
+  } else if (type === 'KYC') {
+    text = "Your bank KYC has expired. Send your debit card CVV, PIN, and Aadhaar to prevent account freeze.";
   } else {
-    document.getElementById('historyTab').style.display = 'none';
+    text = "Hello, can we meet for project discussion tomorrow afternoon at the library?";
   }
-}
 
-/* ═══════════════════════════════════════════════════════════════
-   CALL HISTORY
-════════════════════════════════════════════════════════════════ */
-async function loadCallHistory() {
-  const list = document.getElementById('historyList');
-  list.innerHTML = '<div style="color:#555;font-size:13px;">Loading...</div>';
-  try {
-    const r = await fetch('/api/voip/call_history?limit=10');
-    const d = await r.json();
-    if (!d.calls || d.calls.length === 0) {
-      list.innerHTML = '<div style="color:#555;font-size:13px;">No call history yet.</div>';
-      return;
+  const t0 = performance.now();
+  let score = 0;
+  let found = [];
+  for (const [kw, w] of Object.entries(SCAM_VOCABULARY)) {
+    if (text.toLowerCase().includes(kw)) {
+      score += w * 18;
+      found.push(kw);
     }
-    list.innerHTML = d.calls.map(c => {
-      const riskClass = c.risk_level === 'HIGH' ? 'var(--cs-red)' : c.risk_level === 'MEDIUM' ? 'var(--cs-yellow)' : 'var(--cs-green)';
-      const dur = c.duration_s ? `${Math.floor(c.duration_s/60)}m ${Math.floor(c.duration_s%60)}s` : '—';
-      return `
-        <div style="background:rgba(255,255,255,0.03);border:1px solid #222;border-radius:10px;padding:12px;margin-bottom:8px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-            <span style="font-weight:600;font-size:13px;">${c.call_id}</span>
-            <span style="color:${riskClass};font-weight:700;font-size:13px;">${Math.round(c.final_risk || 0)}% ${c.risk_level || 'LOW'}</span>
-          </div>
-          <div style="font-size:12px;color:#888;">${c.caller} → ${c.receiver} · ${dur} · ${c.category || '—'}</div>
-          <div style="font-size:11px;color:#555;margin-top:4px;">${c.created_at || ''}</div>
-        </div>
-      `;
-    }).join('');
-  } catch (e) {
-    list.innerHTML = '<div style="color:#555;font-size:13px;">Failed to load history.</div>';
   }
+  score = Math.min(Math.round(score), 100);
+  const latency = Math.round(performance.now() - t0);
+
+  const isScam = score >= 35;
+  out.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <b style="color:${isScam ? 'var(--cs-red)' : 'var(--cs-green)'}">${isScam ? '🚨 SCAM DETECTED' : '🛡️ SAFE CALL'}</b>
+      <span style="font-size:12px;font-weight:800;color:${isScam ? 'var(--cs-red)' : 'var(--cs-green)'}">${score}% RISK</span>
+    </div>
+    <div style="font-size:11px;color:#cbd5e1;margin-bottom:6px">"${text}"</div>
+    <div style="font-size:10px;color:#94a3b8">Keywords: ${found.join(', ') || 'None'} · Processed in ${latency} ms</div>
+  `;
+
+  if (isScam) { playAlarmChime(); vibrate([200, 100, 200]); }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   DEMO MODE
-════════════════════════════════════════════════════════════════ */
-function demoFill(text) {
-  document.getElementById('demoText').value = text;
-}
-
-async function runDemoAnalysis() {
-  const text = document.getElementById('demoText').value.trim();
-  if (!text) { alert('Please enter text to analyze'); return; }
-
-  const resultDiv = document.getElementById('demoResult');
-  resultDiv.innerHTML = '<div style="color:#888;font-size:13px;">Analyzing...</div>';
-
-  try {
-    const r = await fetch('/api/voip/demo_analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcript: text, speaker_id: 'DEMO' })
-    });
-    const d = await r.json();
-    if (!d.success) throw new Error(d.message || 'Failed');
-
-    const a = d.analysis;
-    const riskColor = a.risk_level === 'HIGH' ? 'var(--cs-red)' : a.risk_level === 'MEDIUM' ? 'var(--cs-yellow)' : 'var(--cs-green)';
-    const kws = (a.keywords_found || []).map(k => `<span style="background:rgba(255,60,60,0.15);border:1px solid rgba(255,60,60,0.3);color:#ff8888;padding:2px 7px;border-radius:10px;font-size:11px;">${k}</span>`).join(' ');
-
-    resultDiv.innerHTML = `
-      <div style="background:rgba(255,140,0,0.05);border:1px solid rgba(255,140,0,0.3);border-radius:10px;padding:12px;margin-top:8px;">
-        <div style="font-size:11px;color:var(--cs-orange);font-weight:700;margin-bottom:8px;">🎭 DEMO MODE RESULT — Not a Live Call</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <div style="font-size:24px;font-weight:700;color:${riskColor}">${a.fraud_score}%</div>
-          <span class="risk-badge risk-${a.risk_level.replace('-','')}">${a.risk_level}</span>
-        </div>
-        ${kws ? `<div style="margin:8px 0;display:flex;flex-wrap:wrap;gap:4px;">${kws}</div>` : ''}
-        <div style="font-size:12px;color:#aaa;margin-top:8px;">${a.detailed_advice || ''}</div>
-        <div style="font-size:11px;color:#555;margin-top:8px;">Analysis latency: ${a.latency_ms} ms</div>
-      </div>
-    `;
-  } catch (e) {
-    resultDiv.innerHTML = `<div style="color:var(--cs-red);font-size:13px;">❌ ${e.message}</div>`;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   SCAM REPORTING
-════════════════════════════════════════════════════════════════ */
-function openReportModal() {
-  document.getElementById('reportCallId').textContent = currentCallId || '—';
-  document.getElementById('reportModal').style.display = 'flex';
-}
-
-async function submitReport() {
-  const category = document.getElementById('reportCategory').value;
-  const desc     = document.getElementById('reportDesc').value;
-  if (!category) { alert('Please select a scam category'); return; }
-
-  try {
-    const r = await fetch('/api/voip/report_scam', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        call_id:       currentCallId || 'demo',
-        reporter_user: myUserId,
-        scam_category: category,
-        description:   desc
-      })
-    });
-    const d = await r.json();
-    document.getElementById('reportStatus').innerHTML = d.success
-      ? `<span style="color:var(--cs-green)">${d.message}</span>`
-      : `<span style="color:var(--cs-red)">${d.message}</span>`;
-    if (d.success) setTimeout(() => { document.getElementById('reportModal').style.display = 'none'; }, 2500);
-  } catch (e) {
-    document.getElementById('reportStatus').innerHTML = `<span style="color:var(--cs-red)">Error: ${e.message}</span>`;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   AUDIO & HAPTIC FEEDBACK
-════════════════════════════════════════════════════════════════ */
+// ── 11. Haptic & Sound Effects (Web Audio API) ─────────────────────────────
 function playAlarmChime() {
   try {
-    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
-    const freqs = [880, 660, 880];
-    let t = ctx.currentTime;
-    freqs.forEach(freq => {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type      = 'sawtooth';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.3, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.4);
-      t += 0.4;
-    });
-  } catch (e) {}
-}
-
-function playRingtone() {
-  try {
-    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
-    const osc  = ctx.createOscillator();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type   = 'sine';
-    osc.frequency.value = 440;
-    gain.gain.setValueAtTime(0.4, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.35);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start();
-    osc.stop(ctx.currentTime + 1.5);
-  } catch (e) {}
+    osc.stop(ctx.currentTime + 0.35);
+  } catch(e){}
 }
 
-function vibrateDevice(pattern) {
-  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+function playChime(freq) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    osc.frequency.value = freq;
+    osc.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.2);
+  } catch(e){}
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   UTILITIES
-════════════════════════════════════════════════════════════════ */
-function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function vibrate(p) {
+  try { if (navigator.vibrate) navigator.vibrate(p); } catch(e){}
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   INIT
-════════════════════════════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', () => {
-  initSocketIO();
-
-  // Auto-fill from URL param: /modules/voip?call=User_B
-  const params = new URLSearchParams(window.location.search);
-  const callTarget = params.get('call');
-  if (callTarget) {
-    document.getElementById('callTargetId').value = callTarget;
-    document.getElementById('onlineUsersCard').style.display = 'block';
-  }
-});
-
-/* Global style for text inputs */
-document.querySelectorAll('.cs-input').forEach(el => {
-  el.style.cssText = 'background:#0a0a1a;border:1px solid #333;color:#eee;border-radius:8px;padding:8px 10px;font-size:13px;';
+// Auto-connect on load
+window.addEventListener('DOMContentLoaded', () => {
+  connectPeer();
 });
 </script>
-
-<style>
-.cs-input {
-  background:#0a0a1a;
-  border:1px solid #333;
-  color:#eee;
-  border-radius:8px;
-  padding:8px 10px;
-  font-size:13px;
-  outline:none;
-}
-.cs-input:focus { border-color: var(--cs-cyan); }
-</style>
-{% endblock %}
+</body>
+</html>
