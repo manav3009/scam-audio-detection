@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>CallShield AI — Direct Phone VoIP & Live Scam Interceptor</title>
-<!-- Global PeerJS Cloud WebRTC Library -->
+<title>CallShield AI — Live Internet Call Interceptor</title>
+<!-- Global PeerJS WebRTC Library -->
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 :root {
@@ -24,7 +24,7 @@ body {
   color: #f1f5f9;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   min-height: 100vh;
-  padding-bottom: 20px;
+  padding-bottom: 24px;
 }
 .header {
   background: var(--cs-card);
@@ -44,7 +44,7 @@ body {
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   background: rgba(0, 255, 135, 0.15);
   color: var(--cs-green);
   border: 1px solid var(--cs-green);
@@ -64,34 +64,65 @@ body {
   color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.device-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.device-btn {
+  flex: 1;
+  padding: 14px 10px;
+  border-radius: 12px;
+  border: 2px solid #334155;
+  background: var(--cs-card-sub);
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+}
+.device-btn.active {
+  border-color: var(--cs-cyan);
+  background: rgba(0, 212, 255, 0.15);
+  color: var(--cs-cyan);
+  box-shadow: 0 0 16px rgba(0, 212, 255, 0.25);
+}
+.call-big-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  border: none;
+  font-weight: 800;
+  font-size: 17px;
+  padding: 16px;
+  border-radius: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+  transition: transform 0.1s;
+}
+.call-big-btn:active { transform: scale(0.98); }
+.input-row { display: flex; gap: 8px; margin-top: 10px; }
 .cs-input {
   flex: 1;
   background: #030712;
   border: 1px solid #334155;
   color: #f8fafc;
-  padding: 11px 14px;
+  padding: 10px 12px;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 13px;
   outline: none;
 }
 .cs-input:focus { border-color: var(--cs-cyan); }
-.btn-primary {
-  width: 100%;
-  background: linear-gradient(135deg, #00d4ff, #0284c7);
-  border: none;
-  color: #030712;
-  font-weight: 700;
-  padding: 12px;
-  border-radius: 10px;
-  font-size: 14px;
-  cursor: pointer;
-}
 .btn-preset {
   background: var(--cs-card-sub);
   color: #cbd5e1;
@@ -101,11 +132,6 @@ body {
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-}
-.btn-preset.active {
-  background: rgba(0, 212, 255, 0.15);
-  border-color: var(--cs-cyan);
-  color: var(--cs-cyan);
 }
 
 /* ── Active In-Call Screen ── */
@@ -144,9 +170,9 @@ body {
   0% { transform: scale(0.9); opacity: 1; }
   100% { transform: scale(1.35); opacity: 0; }
 }
-.call-peer { font-size: 21px; font-weight: 800; color: #fff; letter-spacing: 0.5px; }
+.call-peer { font-size: 22px; font-weight: 800; color: #fff; }
 .call-sub { font-size: 12px; color: var(--cs-cyan); margin-top: 3px; font-weight: 600; }
-.call-timer { font-size: 26px; font-weight: 300; font-family: monospace; color: #94a3b8; margin-top: 4px; }
+.call-timer { font-size: 28px; font-weight: 300; font-family: monospace; color: #94a3b8; margin-top: 4px; }
 
 /* ── Real-Time Pulsating Fraud Alert Banner ── */
 #fraudBanner {
@@ -312,49 +338,54 @@ body {
     <span style="font-size:20px">🛡️</span>
     <div>
       <h1>CallShield AI</h1>
-      <span>LIVE CALL INTERCEPTOR & FRAUD SHIELD</span>
+      <span>LIVE CALL INTERCEPTOR</span>
     </div>
   </div>
-  <div id="statusBadge" class="badge-status">● Ready</div>
+  <div id="statusBadge" class="badge-status">● Connecting...</div>
 </div>
 
 <div class="container">
 
   <!-- ============================================================= -->
-  <!-- 1. LOBBY & NUMBER CONFIGURATION                               -->
+  <!-- 1. SIMPLE 1-TAP CALL LOBBY                                    -->
   <!-- ============================================================= -->
   <div id="lobbyScreen">
     
-    <!-- My Registered Device Number -->
+    <!-- 1-Tap Phone Selector Card -->
     <div class="card">
       <div class="card-title">
-        <span>📱 Your Registered Phone Number</span>
-        <button class="btn-preset" onclick="toggleEditNumber()">✏️ Change</button>
+        <span>📱 Choose This Device</span>
+        <span id="roleBadge" style="color:var(--cs-cyan);font-size:11px">Ready</span>
       </div>
-      <div id="displayNumberRow" style="font-size:16px;font-weight:700;color:var(--cs-cyan);margin-bottom:6px">
-        +91 <span id="currentMyNumber">9800000001</span>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:10px">
+        Select which phone this is (saved automatically):
       </div>
-      <div id="editNumberRow" style="display:none;margin-bottom:8px">
-        <div class="input-row">
-          <input type="tel" id="inputMyNumber" class="cs-input" placeholder="Enter Your 10-Digit Mobile Number">
-          <button class="btn-primary" style="width:auto;padding:0 14px" onclick="saveMyNumber()">Save</button>
-        </div>
+      <div class="device-selector">
+        <button id="btnRole1" class="device-btn active" onclick="setDeviceRole('Phone_1')">
+          📱 THIS IS PHONE 1
+        </button>
+        <button id="btnRole2" class="device-btn" onclick="setDeviceRole('Phone_2')">
+          📱 THIS IS PHONE 2
+        </button>
       </div>
-      <div style="font-size:11px;color:#64748b;line-height:1.4">
-        Incoming calls to this number over the internet will ring on this device automatically!
+
+      <!-- Giant 1-Tap Call Action Button -->
+      <button id="btnMainCallAction" class="call-big-btn" onclick="triggerMainCall()">
+        <span>📞</span>
+        <span id="mainCallBtnText">CALL PHONE 2 OVER INTERNET</span>
+      </button>
+
+      <div style="font-size:11px;color:#64748b;margin-top:10px;text-align:center">
+        💡 Tap the button above to ring the other phone immediately over the internet!
       </div>
     </div>
 
-    <!-- Direct Number Dialing Card -->
+    <!-- Direct Custom Number or Room Dialing -->
     <div class="card">
-      <div class="card-title">📞 Direct Dial Any Phone Number</div>
+      <div class="card-title">📞 Or Call Specific Number / Room</div>
       <div class="input-row">
-        <input type="tel" id="targetPhoneNumber" class="cs-input" placeholder="Enter 10-Digit Phone Number (e.g. 9800000002)" value="9800000002">
-        <button class="btn-primary" style="width: auto; padding: 0 20px;" onclick="manualStartCall()">📞 Call</button>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:6px">
-        <button class="btn-preset" onclick="setTargetNumber('9800000001')">Quick: 9800000001</button>
-        <button class="btn-preset" onclick="setTargetNumber('9800000002')">Quick: 9800000002</button>
+        <input type="text" id="customTargetNumber" class="cs-input" placeholder="Enter Phone 2 or Custom ID" value="Phone_2">
+        <button class="call-big-btn" style="width:auto;padding:0 18px;font-size:14px" onclick="dialCustomNumber()">Call</button>
       </div>
     </div>
 
@@ -365,7 +396,7 @@ body {
         <span style="font-size:10px;background:rgba(255,140,0,0.15);padding:2px 6px;border-radius:6px;">On-Device AI</span>
       </div>
       <div style="font-size:12px;color:#cbd5e1;margin-bottom:8px;">
-        Tap any button to test instant fraud detection without needing 2 phones:
+        Tap any button to test instant fraud detection without needing a 2nd phone:
       </div>
       <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
         <button class="btn-preset" style="flex:1" onclick="simulateScam('OTP')">🔴 Test OTP Scam</button>
@@ -379,7 +410,7 @@ body {
   </div>
 
   <!-- ============================================================= -->
-  <!-- 2. ACTIVE CALL SCREEN (Full In-Call AI Interceptor)            -->
+  <!-- 2. ACTIVE IN-CALL SCREEN                                      -->
   <!-- ============================================================= -->
   <div id="callScreen">
     
@@ -388,7 +419,7 @@ body {
         <div class="avatar-ring"></div>
         <div class="avatar-core">👤</div>
       </div>
-      <div id="callPeerName" class="call-peer">+91 9800000002</div>
+      <div id="callPeerName" class="call-peer">Phone 2</div>
       <div id="callConnectionStatus" class="call-sub">🛡️ Calling over Internet...</div>
       <div id="callTimer" class="call-timer">00:00</div>
     </div>
@@ -463,20 +494,20 @@ body {
   <div class="modal-box">
     <div style="font-size:46px;margin-bottom:8px">📞</div>
     <div style="font-size:13px;color:#94a3b8">Incoming Internet Call</div>
-    <div id="incomingCallerId" style="font-size:20px;font-weight:800;color:#fff;margin:6px 0 20px">+91 9800000001</div>
+    <div id="incomingCallerId" style="font-size:22px;font-weight:800;color:#fff;margin:6px 0 20px">Phone 1</div>
     <div style="display:flex;gap:10px">
-      <button class="btn-primary" style="flex:1" onclick="acceptCall()">✅ Answer</button>
-      <button class="btn-danger" style="flex:1" onclick="rejectCall()">❌ Decline</button>
+      <button class="call-big-btn" style="flex:1;padding:12px;font-size:15px" onclick="acceptCall()">✅ Answer</button>
+      <button class="btn-end" style="flex:1;width:auto;height:48px;border-radius:12px;font-size:15px" onclick="rejectCall()">❌ Decline</button>
     </div>
   </div>
 </div>
 
-<!-- Remote Audio Element -->
+<!-- Audio element for peer voice -->
 <audio id="remoteAudio" autoplay playsinline></audio>
 
 <script>
 /* =========================================================================
-   CALLSHIELD AI — DIRECT PHONE NUMBER VOIP & LIVE SCAM INTERCEPTOR
+   CALLSHIELD AI — SUPER SIMPLE DUAL-DEVICE VOIP & LIVE SCAM INTERCEPTOR
    ========================================================================= */
 
 // Comprehensive Multilingual Fraud Vocabulary & Weights
@@ -522,57 +553,52 @@ let callStartTime = null;
 let callTimerInterval = null;
 let peakRisk = 0;
 let detectedIndicators = new Set();
-let myPhoneNumber = localStorage.getItem('callshield_my_phone') || '9800000001';
 
-// ── 1. Setup & Registration by Phone Number ────────────────────────────────
-function initMyNumber() {
-  document.getElementById('currentMyNumber').textContent = myPhoneNumber;
-  document.getElementById('inputMyNumber').value = myPhoneNumber;
-  connectPeerWithNumber(myPhoneNumber);
+// ── 1. Device Role Management (Phone 1 vs Phone 2) ─────────────────────────
+let myRole = localStorage.getItem('callshield_device_role') || 'Phone_1';
+let otherRole = (myRole === 'Phone_1') ? 'Phone_2' : 'Phone_1';
+
+function setDeviceRole(role) {
+  myRole = role;
+  otherRole = (role === 'Phone_1') ? 'Phone_2' : 'Phone_1';
+  localStorage.setItem('callshield_device_role', myRole);
+
+  document.getElementById('btnRole1').classList.toggle('active', role === 'Phone_1');
+  document.getElementById('btnRole2').classList.toggle('active', role === 'Phone_2');
+  
+  const targetLabel = (role === 'Phone_1') ? 'PHONE 2' : 'PHONE 1';
+  document.getElementById('mainCallBtnText').textContent = `CALL ${targetLabel} OVER INTERNET`;
+  document.getElementById('customTargetNumber').value = otherRole;
+  document.getElementById('roleBadge').textContent = `● Registered as ${role.replace('_', ' ')}`;
+
+  connectPeerCloud(myRole);
 }
 
-function toggleEditNumber() {
-  const row = document.getElementById('editNumberRow');
-  row.style.display = (row.style.display === 'none') ? 'block' : 'none';
-}
-
-function saveMyNumber() {
-  const num = document.getElementById('inputMyNumber').value.replace(/[^0-9]/g, '').trim();
-  if (num.length < 4) { alert('Enter valid phone number'); return; }
-  myPhoneNumber = num;
-  localStorage.setItem('callshield_my_phone', myPhoneNumber);
-  document.getElementById('currentMyNumber').textContent = myPhoneNumber;
-  document.getElementById('editNumberRow').style.display = 'none';
-  connectPeerWithNumber(myPhoneNumber);
-}
-
-function setTargetNumber(num) {
-  document.getElementById('targetPhoneNumber').value = num;
-}
-
-// ── 2. Cloud PeerJS Connection (Registered as Phone Number) ────────────────
-function connectPeerWithNumber(phoneNumber) {
+// ── 2. Cloud PeerJS Connection (Multi-STUN Reliable) ───────────────────────
+function connectPeerCloud(id) {
   if (myPeer && !myPeer.destroyed) {
-    if (myPeer.id === phoneNumber) return;
+    if (myPeer.id === id) return;
     myPeer.destroy();
   }
 
   document.getElementById('statusBadge').textContent = '● Connecting...';
 
-  // Cloud signaling via PeerJS (Uses direct phone number as Peer ID)
-  myPeer = new Peer(phoneNumber, {
+  myPeer = new Peer(id, {
     debug: 1,
     config: {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
         { urls: 'stun:stun.cloudflare.com:3478' }
       ]
     }
   });
 
-  myPeer.on('open', (id) => {
-    document.getElementById('statusBadge').textContent = '● ' + id + ' (Online)';
+  myPeer.on('open', (assignedId) => {
+    document.getElementById('statusBadge').textContent = `● ${assignedId.replace('_', ' ')} (ONLINE)`;
     document.getElementById('statusBadge').style.borderColor = 'var(--cs-green)';
     document.getElementById('statusBadge').style.color = 'var(--cs-green)';
   });
@@ -580,7 +606,7 @@ function connectPeerWithNumber(phoneNumber) {
   // Handle incoming call
   myPeer.on('call', (call) => {
     incomingCallObj = call;
-    document.getElementById('incomingCallerId').textContent = '+91 ' + call.peer;
+    document.getElementById('incomingCallerId').textContent = call.peer.replace('_', ' ');
     document.getElementById('incomingModal').classList.add('active');
     triggerAlarmHaptic(500);
     playChime(660);
@@ -592,10 +618,10 @@ function connectPeerWithNumber(phoneNumber) {
   });
 
   myPeer.on('error', (err) => {
-    if (err.type === 'unavailable-id') {
-      console.warn('ID collision, appending suffix');
-      const fallback = phoneNumber + '_' + Math.floor(10 + Math.random() * 90);
-      connectPeerWithNumber(fallback);
+    console.warn('Peer error:', err.type);
+    if (err.type === 'peer-unavailable') {
+      alert(`The other device (${otherRole.replace('_', ' ')}) is not online yet.\n\nOpen CallShield AI on Phone 2 and select "THIS IS PHONE 2", then try again.`);
+      endCall();
     }
   });
 }
@@ -611,41 +637,44 @@ function setupDataConnection(conn) {
   });
 }
 
-// ── 3. Direct Dialing (Triggered from Android Dialer or In-App) ────────────
-window.directCallNumber = function(targetNumber) {
-  const clean = targetNumber.replace(/[^0-9]/g, '').trim();
-  if (clean) {
-    document.getElementById('targetPhoneNumber').value = clean;
-    executeStartCall(clean);
-  }
-};
-
-function manualStartCall() {
-  const num = document.getElementById('targetPhoneNumber').value.replace(/[^0-9]/g, '').trim();
-  if (!num) { alert('Enter recipient phone number'); return; }
-  executeStartCall(num);
+// ── 3. Call Triggering ─────────────────────────────────────────────────────
+function triggerMainCall() {
+  executeStartCall(otherRole);
 }
 
-async function executeStartCall(targetNumber) {
-  if (targetNumber === myPhoneNumber) {
-    alert('Cannot call your own phone number. Call another phone number.');
+function dialCustomNumber() {
+  const target = document.getElementById('customTargetNumber').value.trim();
+  if (!target) { alert('Enter recipient'); return; }
+  executeStartCall(target);
+}
+
+window.directCallNumber = function(targetNumber) {
+  let clean = targetNumber.trim();
+  if (clean.includes('2') || clean.endsWith('2')) clean = 'Phone_2';
+  else if (clean.includes('1') || clean.endsWith('1')) clean = 'Phone_1';
+  executeStartCall(clean || otherRole);
+};
+
+async function executeStartCall(target) {
+  if (target === myRole) {
+    alert(`This device is ${myRole.replace('_', ' ')}.\n\nSelect "THIS IS PHONE 2" on the other phone and call it!`);
     return;
   }
 
   try {
     localMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
   } catch(e) {
-    alert('Please grant microphone permission to make VoIP calls.');
+    alert('Microphone permission required for VoIP calls.');
     return;
   }
 
   // Connect DataChannel for real-time threat alert sharing
-  const conn = myPeer.connect(targetNumber);
+  const conn = myPeer.connect(target);
   setupDataConnection(conn);
 
   // Call the peer with audio
-  const call = myPeer.call(targetNumber, localMediaStream);
-  setupActiveCall(call, targetNumber);
+  const call = myPeer.call(target, localMediaStream);
+  setupActiveCall(call, target);
 }
 
 // ── 4. Answer / Reject Call ────────────────────────────────────────────────
@@ -674,16 +703,16 @@ function rejectCall() {
 }
 
 // ── 5. Setup Active Call ───────────────────────────────────────────────────
-function setupActiveCall(call, peerNumber) {
+function setupActiveCall(call, peerName) {
   currentCall = call;
   document.getElementById('lobbyScreen').style.display = 'none';
   document.getElementById('callScreen').style.display = 'block';
-  document.getElementById('callPeerName').textContent = '+91 ' + peerNumber;
-  document.getElementById('callConnectionStatus').textContent = '🛡️ Interceptor Active · Audio Streaming';
+  document.getElementById('callPeerName').textContent = peerName.replace('_', ' ');
+  document.getElementById('callConnectionStatus').textContent = '🛡️ Calling over Internet...';
 
   call.on('stream', (remoteStream) => {
     document.getElementById('remoteAudio').srcObject = remoteStream;
-    document.getElementById('callConnectionStatus').textContent = '🛡️ Connected · Live AI Protection Active';
+    document.getElementById('callConnectionStatus').textContent = '🛡️ Connected · Live AI Interceptor Active';
   });
 
   call.on('close', () => { endCall(); });
@@ -802,13 +831,13 @@ function processSpokenText(rawText, isFinal) {
   document.getElementById('engineLatency').textContent = `${latency} ms`;
 
   let riskLevel = 'LOW RISK';
-  let category = 'Normal';
+  let category = 'Normal Conversation';
   if (finalScore >= 65) {
     riskLevel = 'HIGH RISK';
-    category = 'Sensitive Credential Theft / Urgent Scam';
+    category = 'Sensitive Credential Theft / Scam';
   } else if (finalScore >= 35) {
     riskLevel = 'MEDIUM RISK';
-    category = 'Suspicious Banking Conversation';
+    category = 'Suspicious Banking Discussion';
   }
 
   if (finalScore > peakRisk) {
@@ -819,7 +848,7 @@ function processSpokenText(rawText, isFinal) {
   if (isFinal) {
     appendTranscript('You: ' + rawText, finalScore >= 35);
     if (dataConn && dataConn.open) {
-      dataConn.send({ type: 'TRANSCRIPT', text: rawText, speaker: myPhoneNumber, isDanger: finalScore >= 35 });
+      dataConn.send({ type: 'TRANSCRIPT', text: rawText, speaker: myRole.replace('_', ' '), isDanger: finalScore >= 35 });
     }
   }
 
@@ -833,7 +862,7 @@ function processSpokenText(rawText, isFinal) {
         score: finalScore,
         keywords: matchedList,
         text: rawText,
-        speaker: myPhoneNumber
+        speaker: myRole.replace('_', ' ')
       });
     }
   }
@@ -860,7 +889,7 @@ function receiveRemoteFraudAlert(data) {
   banner.classList.add('active');
   document.getElementById('bannerScoreBadge').textContent = `${data.score}%`;
   document.getElementById('bannerMessage').textContent =
-    `🚨 ALERT: The caller (${data.speaker}) is asking for sensitive credentials! NEVER SHARE OTP OR PASSWORDS!`;
+    `🚨 ALERT: The other caller (${data.speaker}) is asking for sensitive credentials! NEVER SHARE OTP OR PASSWORDS!`;
 
   const kwWrap = document.getElementById('bannerKeywords');
   kwWrap.innerHTML = (data.keywords || []).map(k => `<span class="kw-tag">${k}</span>`).join('');
@@ -923,14 +952,12 @@ function appendTimeline(score, text, kws) {
 
 // ── 9. Hardware Vibration & Sound Alarm ────────────────────────────────────
 function triggerAlarmHaptic(ms) {
-  // 1. Android Native Hardware Vibration via Bridge
   if (window.CallShieldBridge && window.CallShieldBridge.triggerVibrate) {
     try { window.CallShieldBridge.triggerVibrate(ms); } catch(e){}
   }
   if (window.CallShieldBridge && window.CallShieldBridge.triggerAlert) {
     try { window.CallShieldBridge.triggerAlert("SCAM CALL DETECTED", "Caller is asking for sensitive OTP / Banking details!", 95); } catch(e){}
   }
-  // 2. Web Vibration Fallback
   try {
     if (navigator.vibrate) {
       navigator.vibrate([300, 150, 300, 150, 500]);
@@ -1013,7 +1040,7 @@ function simulateScam(type) {
 
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
-  initMyNumber();
+  setDeviceRole(myRole);
 });
 </script>
 </body>
