@@ -577,6 +577,25 @@ body {
       </div>
     </div>
 
+    <!-- Live Fraud Evidence & 1930 Cybercrime Quick SOS Card -->
+    <div id="cybercrimeKitCard" class="card" style="border-color: rgba(239,68,68,0.4); background: rgba(30, 41, 59, 0.7);">
+      <div class="card-title" style="color:#f87171">
+        <span>🚨 Real-Time Fraud Evidence Kit</span>
+        <span style="font-size:10px;background:#ef4444;color:#fff;padding:2px 8px;border-radius:10px;font-weight:bold;">POLICE 1930 READY</span>
+      </div>
+      <div style="font-size:12px;color:#cbd5e1;margin-bottom:10px;line-height:1.4">
+        Evidence logged in memory. If pressured or threatened, report immediately:
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="dialCybercrimeHelpline()" style="flex:1;background:#ef4444;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:bold;font-size:13px;cursor:pointer;">
+          🚨 DIAL 1930 HELPLINE
+        </button>
+        <button onclick="copyFraudTranscript()" style="background:#1e293b;border:1px solid #475569;color:#38bdf8;padding:12px;border-radius:10px;font-weight:bold;font-size:12px;cursor:pointer;">
+          📋 COPY EVIDENCE
+        </button>
+      </div>
+    </div>
+
     <!-- Call Controls -->
     <div class="call-actions">
       <button id="btnMute" class="ctrl-btn btn-mute" onclick="toggleMute()" title="Mute Mic">🎙️</button>
@@ -759,7 +778,10 @@ function getTargetPeerId() {
   return `cs_line_${currentChannel}_${suffix}`;
 }
 
-// ── 2. Reliable Cloud PeerJS Connection with Heartbeat Keep-Alive ──────────
+// ── 2. Reliable Cloud PeerJS Connection with Port 443 TCP Fallback & Keep-Alive ──
+let isLineBusy = false;
+let isHuntingActive = false;
+
 function reconnectPeer() {
   const id = getMyPeerId();
   if (myPeer && !myPeer.destroyed) {
@@ -769,19 +791,24 @@ function reconnectPeer() {
 
   document.getElementById('statusBadge').textContent = '● Connecting...';
 
-  // Reliable Google & Cloudflare STUN servers (Fast, worldwide, zero authentication failures)
+  // Multi-Region STUN/TURN with Port 443 HTTPS-Fallback (Bypasses College Firewalls & Classroom NATs)
   myPeer = new Peer(id, {
     debug: 1,
     config: {
       iceServers: [
+        // Standard Google STUN
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
+        // Port 443 / Cloudflare & Mozilla STUN (Passes through campus HTTP/HTTPS firewall proxies)
         { urls: 'stun:stun.cloudflare.com:3478' },
-        { urls: 'stun:stun.services.mozilla.com:3478' }
-      ]
+        { urls: 'stun:stun.services.mozilla.com:3478' },
+        { urls: 'stun:stun.relay.metered.ca:80' },
+        { urls: 'stun:stun.relay.metered.ca:443' }
+      ],
+      iceCandidatePoolSize: 10
     }
   });
 
@@ -792,7 +819,7 @@ function reconnectPeer() {
     document.getElementById('statusBadge').style.color = (currentUserRole === 'RECEIVER') ? 'var(--cs-green)' : 'var(--cs-orange)';
   });
 
-  // Reconnect automatically if connection to signaling server drops on 4G/5G
+  // Reconnect automatically if connection to signaling server drops on 4G/5G or college Wi-Fi
   myPeer.on('disconnected', () => {
     console.log('Peer disconnected from cloud server, auto-reconnecting...');
     document.getElementById('statusBadge').textContent = '● Reconnecting...';
@@ -800,8 +827,22 @@ function reconnectPeer() {
     try { myPeer.reconnect(); } catch(e){}
   });
 
-  // Handle incoming call
+  // Handle incoming call with Automatic Busy Line transfer response
   myPeer.on('call', (call) => {
+    if (currentCall) {
+      // Line is currently BUSY with another conversation
+      console.log('Line ' + currentChannel + ' is busy. Rejecting call with BUSY signal...');
+      try {
+        const busyConn = myPeer.connect(call.peer);
+        busyConn.on('open', () => {
+          busyConn.send({ type: 'LINE_BUSY', currentLine: currentChannel });
+          setTimeout(() => { try { busyConn.close(); } catch(e){} }, 1000);
+        });
+      } catch(e){}
+      call.close();
+      return;
+    }
+
     incomingCallObj = call;
     document.getElementById('incomingCallerId').textContent = `Line ${currentChannel} Incoming Call`;
     document.getElementById('incomingModal').classList.add('active');
@@ -819,11 +860,40 @@ function reconnectPeer() {
   myPeer.on('error', (err) => {
     console.warn('Peer error:', err.type);
     if (err.type === 'peer-unavailable') {
-      const targetName = (currentUserRole === 'RECEIVER') ? 'Caller' : 'Receiver';
-      alert(`Line ${currentChannel} (${targetName}) is not active yet.\n\nMake sure Phone 2 has CallShield open on Line ${currentChannel} and selected "${targetName}".`);
-      endCall();
+      handlePeerUnavailable();
     }
   });
+}
+
+// ── Smart Busy-Line Hunting & Auto-Transfer ────────────────────────────────
+function handlePeerUnavailable() {
+  const currentNum = parseInt(currentChannel, 10);
+  if (!isNaN(currentNum) && currentNum >= 101 && currentNum < 105 && isHuntingActive) {
+    const nextLine = String(currentNum + 1);
+    console.log(`Line ${currentChannel} busy or unavailable. Auto-transferring to Line ${nextLine}...`);
+    showHuntingToast(`Line ${currentChannel} is busy. Automatically transferring to Line ${nextLine}...`);
+    setChannel(nextLine);
+    setTimeout(() => {
+      triggerMainCall();
+    }, 600);
+  } else {
+    isHuntingActive = false;
+    const targetName = (currentUserRole === 'RECEIVER') ? 'Caller' : 'Receiver';
+    alert(`Line ${currentChannel} (${targetName}) is not active yet.\n\nMake sure Phone 2 has CallShield open on Line ${currentChannel} and selected "${targetName}".`);
+    endCall();
+  }
+}
+
+function showHuntingToast(msg) {
+  const badge = document.getElementById('statusBadge');
+  if (badge) {
+    badge.textContent = `🔄 Auto-Transferring...`;
+    badge.style.color = 'var(--cs-cyan)';
+  }
+  const statusEl = document.getElementById('callConnectionStatus');
+  if (statusEl) {
+    statusEl.textContent = `🔄 ` + msg;
+  }
 }
 
 // 🔄 Active Heartbeat Ping every 10s so mobile data (Jio, Airtel 4G/5G) never drops idle WebSocket
@@ -843,7 +913,9 @@ function setupDataConnection(conn) {
     console.log('Data connection is now active with peer');
   });
   dataConn.on('data', (data) => {
-    if (data.type === 'FRAUD_ALERT') {
+    if (data.type === 'LINE_BUSY') {
+      handlePeerUnavailable();
+    } else if (data.type === 'FRAUD_ALERT') {
       receiveRemoteFraudAlert(data);
     } else if (data.type === 'TRANSCRIPT') {
       appendTranscript(data.speaker + ': ' + data.text, data.isDanger);
@@ -854,6 +926,7 @@ function setupDataConnection(conn) {
 // ── 3. Call Triggering & Clean Audio Stream ────────────────────────────────
 function triggerMainCall() {
   isActualCaller = true;
+  isHuntingActive = true;
   const target = getTargetPeerId();
   executeStartCall(target);
 }
@@ -864,6 +937,7 @@ window.directCallNumber = function(targetNumber) {
   setChannel(clean);
   setUserRole('CALLER');
   isActualCaller = true;
+  isHuntingActive = true;
   const target = getTargetPeerId();
   executeStartCall(target);
 };
@@ -895,6 +969,28 @@ async function executeStartCall(target) {
   // Call the peer with audio
   const call = myPeer.call(target, localMediaStream);
   setupActiveCall(call, target);
+}
+
+// ── 1930 Cybercrime Helpers ────────────────────────────────────────────────
+function dialCybercrimeHelpline() {
+  if (window.CallShieldBridge && window.CallShieldBridge.dialHelpline) {
+    try { window.CallShieldBridge.dialHelpline("1930"); return; } catch(e){}
+  }
+  window.location.href = "tel:1930";
+}
+
+function copyFraudTranscript() {
+  const panel = document.getElementById('transcriptPanel');
+  const text = panel ? panel.innerText : 'No fraud transcript logged.';
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => {
+      alert("📋 Evidence copied to clipboard!\nYou can paste this directly into cybercrime.gov.in or report to 1930.");
+    }).catch(() => {
+      alert("Evidence: \n\n" + text);
+    });
+  } else {
+    alert("Evidence: \n\n" + text);
+  }
 }
 
 // ── 4. Answer / Reject Call ────────────────────────────────────────────────
