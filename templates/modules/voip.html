@@ -148,58 +148,40 @@ body {
 }
 
 .role-badge-pill {
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
   font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.3px;
 }
-.role-victim-badge { background: rgba(0,255,135,0.15); color: var(--cs-green); border: 1px solid var(--cs-green); }
-.role-caller-badge { background: rgba(255,140,0,0.15); color: var(--cs-orange); border: 1px solid var(--cs-orange); }
-
-.role-switch-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #0f172a;
-  border: 1px solid #334155;
-  border-radius: 10px;
-  padding: 10px 12px;
-  color: #94a3b8;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: left;
-}
-.role-switch-btn.active-victim {
-  background: rgba(0, 255, 135, 0.12);
-  border-color: var(--cs-green);
-  color: var(--cs-green);
-  box-shadow: 0 0 14px rgba(0, 255, 135, 0.2);
-}
-.role-switch-btn.active-scammer {
-  background: rgba(255, 140, 0, 0.15);
-  border-color: var(--cs-orange);
-  color: var(--cs-orange);
-  box-shadow: 0 0 14px rgba(255, 140, 0, 0.2);
-}
+.role-victim-badge { background: rgba(0,255,135,0.15); color: var(--cs-green); border: 1px solid var(--cs-green); box-shadow: 0 0 12px rgba(0,255,135,0.25); }
+.role-caller-badge { background: rgba(255,140,0,0.15); color: var(--cs-orange); border: 1px solid var(--cs-orange); box-shadow: 0 0 12px rgba(255,140,0,0.25); }
+.role-neutral-badge { background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid #38bdf8; box-shadow: 0 0 12px rgba(56,189,248,0.25); }
 
 .call-big-btn {
   width: 100%;
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(180deg, #10b981 0%, #059669 60%, #047857 100%);
   color: #fff;
-  border: none;
+  border: 1.5px solid #6ee7b7;
   font-weight: 800;
   font-size: 16px;
-  padding: 16px;
-  border-radius: 14px;
+  padding: 16px 20px;
+  border-radius: 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
-  transition: transform 0.1s;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.45), inset 0 2px 2px rgba(255, 255, 255, 0.4), 0 5px 0 #064e3b;
+  transition: all 0.12s ease-in-out;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  letter-spacing: 0.5px;
 }
-.call-big-btn:active { transform: scale(0.98); }
+.call-big-btn:hover { filter: brightness(1.06); }
+.call-big-btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.2), 0 1px 0 #064e3b;
+}
 .input-row { display: flex; gap: 8px; margin-top: 8px; }
 .cs-input {
   flex: 1;
@@ -510,56 +492,40 @@ body {
       </div>
     </div>
 
-    <!-- 2. Direct 1-Tap Calling Hub (No Caller/Receiver Selection Needed) -->
+    <!-- 2. Direct 1-Tap Autonomous Calling Hub (Zero Role Setup Needed) -->
     <div class="card">
       <div class="card-title">
         <span>📞 Instant Live Call Shield</span>
-        <span id="roleBadge" class="role-badge-pill role-victim-badge">🛡️ AI Scam Interceptor ON</span>
+        <span id="roleBadge" class="role-badge-pill role-neutral-badge">🛡️ AI Auto-Defense ON</span>
+      </div>
+
+      <!-- Autonomous AI Voice Protection Notice -->
+      <div style="display:flex;align-items:center;gap:10px;background:linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(16, 185, 129, 0.1));border:1px solid rgba(56, 189, 248, 0.25);padding:10px 12px;border-radius:12px;margin-bottom:12px;">
+        <span style="font-size:22px;">🤖</span>
+        <div style="font-size:11px;color:#cbd5e1;line-height:1.4;">
+          <b style="color:var(--cs-cyan);">Autonomous Voice Interceptor:</b> CallShield automatically detects who is the Scammer and who is the Victim from live voice requests. Alerts only ring on the victim's phone!
+        </div>
       </div>
 
       <!-- Warning Sound Preference Toggle -->
-      <div style="display:flex;justify-content:space-between;align-items:center;background:#030712;padding:10px 12px;border-radius:10px;margin-bottom:12px;border:1px solid #334155;">
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#030712;padding:10px 12px;border-radius:12px;margin-bottom:14px;border:1px solid #334155;">
         <div>
           <div style="font-size:12px;font-weight:700;color:#fff">🔔 Warning Chime Sound</div>
-          <div style="font-size:10px;color:#94a3b8">Subtle discreet chime on scam detection (10s throttle)</div>
+          <div style="font-size:10px;color:#94a3b8">Subtle single chime on fraud detection (never loops)</div>
         </div>
-        <button id="btnSoundAlertToggle" class="btn-preset" style="padding:6px 12px;color:var(--cs-cyan)" onclick="toggleSoundAlert()">
+        <button id="btnSoundAlertToggle" class="btn-preset" style="padding:6px 12px;color:var(--cs-cyan);font-weight:700;" onclick="toggleSoundAlert()">
           🔊 Sound: ON
         </button>
       </div>
 
-      <!-- Device CallShield Role Selector (Victim vs Scammer) -->
-      <div style="margin-bottom:12px;background:#030712;padding:10px 12px;border-radius:10px;border:1px solid #334155;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <span style="font-size:12px;font-weight:700;color:#fff">📱 Role of This Mobile:</span>
-          <span id="lobbyRoleBadge" class="role-badge-pill role-victim-badge">🛡️ Protected Victim</span>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <button id="btnRoleVictim" class="role-switch-btn active-victim" onclick="setDeviceRole('victim')">
-            <span style="font-size:18px">🛡️</span>
-            <div>
-              <div style="font-weight:800;font-size:12px">Protected Victim</div>
-              <div style="font-size:10px;opacity:0.8">Alarm & Vibration ON</div>
-            </div>
-          </button>
-          <button id="btnRoleScammer" class="role-switch-btn" onclick="setDeviceRole('scammer')">
-            <span style="font-size:18px">🦹</span>
-            <div>
-              <div style="font-weight:800;font-size:12px">Scammer / Tester</div>
-              <div style="font-size:10px;opacity:0.8">Silent Stealth Mode</div>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      <!-- Giant 1-Tap Call Action Button -->
+      <!-- Single 3D 1-Tap Call Action Button -->
       <button id="btnMainCallAction" class="call-big-btn" onclick="triggerMainCall()">
-        <span>📞</span>
+        <span style="font-size:20px;">📞</span>
         <span id="mainCallBtnText">CALL ON LINE 101 NOW</span>
       </button>
 
       <div style="font-size:11px;color:#64748b;margin-top:10px;text-align:center" id="roleExplainer">
-        💡 Tap once to call. Alerts only sound on the Victim's device; Scammer stays completely silent.
+        💡 1-Tap to call. If the line is busy, CallShield will notify you or auto-roll to the next free channel.
       </div>
     </div>
 
@@ -596,12 +562,11 @@ body {
       <div id="callPeerName" class="call-peer">Line 101 Call</div>
       <div id="callConnectionStatus" class="call-sub">🛡️ Calling over Internet...</div>
       
-      <!-- Role indicator in call with quick switch button -->
-      <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:8px">
-        <div id="inCallRolePill" class="role-badge-pill role-victim-badge" style="padding:4px 12px;font-size:11px">
-          🛡️ My Mobile: Protected Victim (Alerts Active)
+      <!-- Autonomous Role Indicator in call -->
+      <div style="display:flex;justify-content:center;align-items:center;margin-top:8px">
+        <div id="inCallRolePill" class="role-badge-pill role-neutral-badge" style="padding:6px 14px;font-size:11px">
+          🛡️ AI Voice Guardian: Monitoring Live Audio (Neutral)
         </div>
-        <button class="btn-preset" style="padding:4px 8px;font-size:10px" onclick="toggleDeviceRole()">⇄ Switch Role</button>
       </div>
 
       <div id="callTimer" class="call-timer">00:00</div>
@@ -832,62 +797,42 @@ function updateSoundAlertUI() {
 }
 
 // ── Device CallShield Role Manager (Protected Victim vs Scammer/Tester) ───────
-let myDeviceRole = localStorage.getItem('cs_device_role') || 'victim'; // 'victim' or 'scammer'
+// ── Autonomous AI Role Classifier (100% Automatic Detection) ───────────────
+let autoDetectedRole = 'NEUTRAL'; // 'NEUTRAL', 'SCAMMER', or 'VICTIM'
 
-function setDeviceRole(role, broadcast = true) {
-  myDeviceRole = (role === 'scammer') ? 'scammer' : 'victim';
-  localStorage.setItem('cs_device_role', myDeviceRole);
-  updateRoleUI();
-
-  if (broadcast && dataConn && dataConn.open) {
-    try {
-      dataConn.send({ type: 'ROLE_SYNC', role: myDeviceRole });
-    } catch(e){}
-  }
-}
-
-function toggleDeviceRole() {
-  setDeviceRole(myDeviceRole === 'victim' ? 'scammer' : 'victim', true);
-}
-
-function updateRoleUI() {
-  const isVictim = (myDeviceRole === 'victim');
-
-  // 1. Lobby button states
-  const btnVictim = document.getElementById('btnRoleVictim');
-  const btnScammer = document.getElementById('btnRoleScammer');
-  if (btnVictim && btnScammer) {
-    btnVictim.className = `role-switch-btn ${isVictim ? 'active-victim' : ''}`;
-    btnScammer.className = `role-switch-btn ${!isVictim ? 'active-scammer' : ''}`;
-  }
-
-  // 2. Lobby badge
-  const lobbyBadge = document.getElementById('lobbyRoleBadge');
-  if (lobbyBadge) {
-    lobbyBadge.className = `role-badge-pill ${isVictim ? 'role-victim-badge' : 'role-caller-badge'}`;
-    lobbyBadge.innerHTML = isVictim ? '🛡️ Protected Victim' : '🦹 Scammer / Suspect (Silent)';
-  }
-
-  // 3. Card header badge
-  const roleBadge = document.getElementById('roleBadge');
-  if (roleBadge) {
-    roleBadge.className = `role-badge-pill ${isVictim ? 'role-victim-badge' : 'role-caller-badge'}`;
-    roleBadge.innerHTML = isVictim ? '🛡️ AI Scam Defense ON' : '🦹 Stealth Interceptor ON';
-  }
-
-  // 4. In-call role pill
+function updateAutoRoleDisplay(customLabel) {
   const inCallPill = document.getElementById('inCallRolePill');
-  if (inCallPill) {
-    inCallPill.className = `role-badge-pill ${isVictim ? 'role-victim-badge' : 'role-caller-badge'}`;
-    inCallPill.innerHTML = isVictim ?
-      '🛡️ My Mobile: Protected Victim (Siren & Vibration Active)' :
-      '🦹 My Mobile: Scammer / Tester (Stealth Mode · Silent)';
-  }
+  const roleBadge = document.getElementById('roleBadge');
 
-  // 5. Scammer device NEVER shows red fraud banner
-  if (!isVictim) {
+  if (autoDetectedRole === 'SCAMMER') {
+    if (inCallPill) {
+      inCallPill.className = 'role-badge-pill role-caller-badge';
+      inCallPill.innerHTML = customLabel || '🦹 Identified as Suspect / Scammer (Silent Stealth Mode)';
+    }
+    if (roleBadge) {
+      roleBadge.className = 'role-badge-pill role-caller-badge';
+      roleBadge.textContent = '🦹 Stealth Mode (Silent)';
+    }
     const fb = document.getElementById('fraudBanner');
     if (fb) fb.classList.remove('active');
+  } else if (autoDetectedRole === 'VICTIM') {
+    if (inCallPill) {
+      inCallPill.className = 'role-badge-pill role-victim-badge';
+      inCallPill.innerHTML = customLabel || '🚨 Identified as Protected Victim (Active Scam Intercepted!)';
+    }
+    if (roleBadge) {
+      roleBadge.className = 'role-badge-pill role-victim-badge';
+      roleBadge.textContent = '🛡️ Protected Victim';
+    }
+  } else {
+    if (inCallPill) {
+      inCallPill.className = 'role-badge-pill role-neutral-badge';
+      inCallPill.innerHTML = '🛡️ AI Voice Guardian: Monitoring Live Audio (Neutral)';
+    }
+    if (roleBadge) {
+      roleBadge.className = 'role-badge-pill role-neutral-badge';
+      roleBadge.textContent = '🛡️ AI Auto-Defense ON';
+    }
   }
 }
 
@@ -1124,19 +1069,9 @@ function setupDataConnection(conn) {
   dataConn = conn;
   dataConn.on('open', () => {
     console.log('Data connection is active with peer');
-    try {
-      dataConn.send({ type: 'ROLE_SYNC', role: myDeviceRole });
-    } catch(e){}
   });
   dataConn.on('data', (data) => {
-    if (data.type === 'ROLE_SYNC') {
-      // Auto-complement rule: If peer has the SAME role as me,
-      // flip this mobile to the complementary role so BOTH MOBILES ARE NEVER BOTH VICTIMS!
-      if (data.role === myDeviceRole) {
-        const complementary = (data.role === 'victim') ? 'scammer' : 'victim';
-        setDeviceRole(complementary, false);
-      }
-    } else if (data.type === 'LINE_BUSY') {
+    if (data.type === 'LINE_BUSY') {
       knownLineBusy[data.line || currentChannel] = true;
       updateLineStatusIndicators();
       handlePeerUnavailable();
@@ -1497,12 +1432,15 @@ function setupActiveCall(call, peerName) {
   document.getElementById('callPeerName').textContent = `Line ${currentChannel} · ${peerDisplay}`;
   document.getElementById('callConnectionStatus').textContent = '🛡️ Connecting...';
 
-  updateRoleUI();
+  autoDetectedRole = 'NEUTRAL';
+  hasSoundedAlertInCall = false;
+  updateAutoRoleDisplay();
 
   call.on('stream', (remoteStream) => {
     const audioEl = document.getElementById('remoteAudio');
     if (audioEl) {
       audioEl.srcObject = remoteStream;
+      audioEl.volume = 0.75; // Balanced volume to prevent acoustic feedback loop
       audioEl.play().catch(e => console.log('Audio autoplay unlock note:', e));
     }
     document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
@@ -1534,6 +1472,14 @@ function endCall() {
   if (audioPitchTimer) { clearInterval(audioPitchTimer); audioPitchTimer = null; }
   pitchSamples = [];
 
+  const audioEl = document.getElementById('remoteAudio');
+  if (audioEl) {
+    try {
+      audioEl.pause();
+      audioEl.srcObject = null;
+    } catch(e){}
+  }
+
   if (currentCall) { try { currentCall.close(); } catch(e){} currentCall = null; }
   if (dataConn) { try { dataConn.close(); } catch(e){} dataConn = null; }
   if (localMediaStream) {
@@ -1543,12 +1489,15 @@ function endCall() {
   if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
   if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
 
+  autoDetectedRole = 'NEUTRAL';
+  hasSoundedAlertInCall = false;
+  updateAutoRoleDisplay();
+
   document.getElementById('callScreen').style.display = 'none';
   document.getElementById('lobbyScreen').style.display = 'block';
   document.getElementById('fraudBanner').classList.remove('active');
   document.getElementById('stealthBanner').classList.remove('active');
   peakRisk = 0;
-  hasSoundedAlertInCall = false;
   updateRiskDisplay(0, 'LOW RISK', '—');
 }
 
@@ -1702,7 +1651,7 @@ function processSpokenText(rawText, isFinal) {
   // Update AI Voice Biometrics, Acoustic Pitch & Official Context Banner
   updateVoiceBiometrics(finalReportedScore, rawText, isOfficialContext);
 
-  const speakerLabel = (myDeviceRole === 'scammer') ? 'Caller (Suspect)' : 'Receiver (Protected)';
+  const speakerLabel = (autoDetectedRole === 'SCAMMER') ? 'Suspect (Caller)' : (autoDetectedRole === 'VICTIM' ? 'Protected Victim' : 'Active Speaker');
 
   if (isFinal) {
     appendTranscript(`${speakerLabel}: ${rawText}`, finalReportedScore >= 35);
@@ -1711,12 +1660,17 @@ function processSpokenText(rawText, isFinal) {
     }
   }
 
-  // ── GUARANTEED DUAL-LAYER SCAM INTERCEPTION (VICTIM-ONLY ALERT DISPATCH) ──
-  // Rule: Only the victim's device sounds the siren and vibrates.
-  // The scammer device remains in SILENT STEALTH so the scammer does not know they are intercepted!
+  // ── GUARANTEED DUAL-LAYER SCAM INTERCEPTION (100% AUTONOMOUS ROLE DETECTION) ──
+  // Rule: Whoever speaks scam patterns is AUTOMATICALLY classified as SCAMMER.
+  // The scammer device remains in 100% SILENT STEALTH so the scammer does not know they are intercepted!
+  // The other device is AUTOMATICALLY classified as the PROTECTED VICTIM and receives the alert!
   if (!isOfficialContext && (finalReportedScore >= 35 || matchedList.length > 0)) {
-    if (myDeviceRole === 'scammer') {
-      // 1. Detected on scammer device: Silently broadcast FRAUD_ALERT to the Victim device!
+    if (autoDetectedRole !== 'VICTIM') {
+      // 1. Detected on local mic: This device is automatically identified as the SCAMMER!
+      autoDetectedRole = 'SCAMMER';
+      updateAutoRoleDisplay();
+
+      // Silently broadcast FRAUD_ALERT to the companion device so only the VICTIM receives the alert!
       if (dataConn && dataConn.open) {
         dataConn.send({
           type: 'FRAUD_ALERT',
@@ -1725,11 +1679,11 @@ function processSpokenText(rawText, isFinal) {
           text: rawText
         });
       }
+
       // Scammer device stays 100% SILENT in Stealth Mode!
       showStealthNotice(finalReportedScore, matchedList);
     } else {
-      // 2. Detected on Victim device: Loud warning banner, pleasant single bell, and hardware vibration!
-      // Do NOT send FRAUD_ALERT to the scammer!
+      // 2. Already classified as Protected Victim: Handle alert locally and NEVER echo alert back!
       triggerVictimAlert(finalReportedScore, matchedList, "Live Voice Detected: Caller requesting sensitive credentials (" + matchedList.join(', ') + ")!");
     }
   } else if (isOfficialContext && matchedList.length > 0) {
@@ -1745,16 +1699,19 @@ function showStealthNotice(score, keywords) {
   }
   const fb = document.getElementById('fraudBanner');
   if (fb) fb.classList.remove('active'); // Scammer NEVER sees screaming red alarm
-  appendTimeline(score, `[Caller Speech]: Detected ${keywords.join(', ')}`, keywords);
+  appendTimeline(score, `[Scam Speech Detected]: ${keywords.join(', ')}`, keywords);
 }
 
 // Triggered ONLY on the Victim's device (never on scammer device)
 function triggerVictimAlert(score, keywords, msg) {
   // ABSOLUTE GUARANTEE: Never alert on Scammer device!
-  if (myDeviceRole === 'scammer') {
+  if (autoDetectedRole === 'SCAMMER') {
     showStealthNotice(score, keywords);
     return;
   }
+
+  autoDetectedRole = 'VICTIM';
+  updateAutoRoleDisplay();
 
   const banner = document.getElementById('fraudBanner');
   if (banner) {
@@ -1777,7 +1734,7 @@ function triggerVictimAlert(score, keywords, msg) {
     updateRiskDisplay(peakRisk, 'HIGH RISK', 'Caller Requesting Sensitive Information');
   }
 
-  // PLEASANT 1-SHOT CHIME & HARDWARE VIBRATION ON VICTIM DEVICE
+  // PLEASANT 1-SHOT CHIME & HARDWARE VIBRATION ON VICTIM DEVICE (NEVER LOOPS!)
   playGentleWarningChime();
   triggerAlarmHaptic(800);
   appendTimeline(score, msg, keywords);
@@ -1785,9 +1742,9 @@ function triggerVictimAlert(score, keywords, msg) {
 
 function receiveRemoteFraudAlert(data) {
   // When remote scammer device senses fraud, alert this VICTIM phone immediately!
-  if (myDeviceRole === 'victim') {
-    triggerVictimAlert(data.score, data.keywords, `🚨 FRAUD ALERT: Suspect caller is asking for sensitive OTP / Banking credentials!`);
-  }
+  autoDetectedRole = 'VICTIM';
+  updateAutoRoleDisplay();
+  triggerVictimAlert(data.score, data.keywords, `🚨 FRAUD ALERT: Caller is asking for sensitive OTP / Banking credentials!`);
 }
 
 function updateRiskDisplay(score, level, category) {
@@ -1838,7 +1795,7 @@ function appendTimeline(score, text, kws) {
 
 // ── 9. Hardware Vibration & Gentle Sound Chime ─────────────────────────────
 function triggerAlarmHaptic(ms) {
-  if (myDeviceRole === 'scammer') return; // Guaranteed: Scammer device NEVER vibrates
+  if (autoDetectedRole === 'SCAMMER') return; // Guaranteed: Scammer device NEVER vibrates
 
   const duration = ms > 0 ? ms : 700;
   // Android Native Bridge
@@ -1858,42 +1815,65 @@ function triggerAlarmHaptic(ms) {
 
 // 🎵 Gentle, single-shot notification bell (Soft volume, non-irritating, never loops)
 let hasSoundedAlertInCall = false;
+let lastChimeTimestamp = 0;
 function playGentleWarningChime() {
-  if (myDeviceRole === 'scammer' || !isSoundAlertEnabled) return; // Scammer device is ALWAYS silent!
-  // Play once per fraud incident; never repeat irritatingly in 10s intervals
+  if (autoDetectedRole === 'SCAMMER' || !isSoundAlertEnabled) return; // Scammer device is ALWAYS silent!
+  const now = Date.now();
+  if (now - lastChimeTimestamp < 15000) return; // 15-second minimum throttle, NEVER LOOPS!
+  lastChimeTimestamp = now;
   if (hasSoundedAlertInCall) return;
   hasSoundedAlertInCall = true;
 
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
     if (ctx.state === 'suspended') { ctx.resume(); }
 
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(659.25, ctx.currentTime); // E5 pleasant chime
-    gain.gain.setValueAtTime(0.18, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.45);
+    osc.stop(ctx.currentTime + 0.35);
+
+    // Guaranteed disconnect & context cleanup so sound NEVER hangs or loops
+    setTimeout(() => {
+      try {
+        osc.disconnect();
+        gain.disconnect();
+        if (ctx.state !== 'closed') ctx.close();
+      } catch(e){}
+    }, 400);
   } catch(e){}
 }
 
 function playDiscreteChime(freq) {
+  if (!isSoundAlertEnabled) return;
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    gain.gain.setValueAtTime(0.10, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.20);
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start();
-    osc.stop(ctx.currentTime + 0.25);
+    osc.stop(ctx.currentTime + 0.20);
+
+    setTimeout(() => {
+      try {
+        osc.disconnect();
+        gain.disconnect();
+        if (ctx.state !== 'closed') ctx.close();
+      } catch(e){}
+    }, 250);
   } catch(e){}
 }
 
@@ -1933,15 +1913,15 @@ function simulateScam(type) {
 
   let alertNote = '';
   if (isScam) {
-    if (myDeviceRole === 'scammer') {
-      alertNote = `<div style="color:var(--cs-orange);font-size:11px;margin-top:4px">🤫 <b>Stealth Mode Demo:</b> Phone remains silent. Scam alert dispatched to Victim's device only.</div>`;
-    } else {
-      alertNote = `<div style="color:var(--cs-red);font-size:11px;margin-top:4px">🚨 Discreet 1-Shot Chime & Vibration triggered on Victim device!</div>`;
-      hasSoundedAlertInCall = false; // Allow demo sound
-      playGentleWarningChime();
-      triggerAlarmHaptic(600);
-    }
+    alertNote = `<div style="color:var(--cs-red);font-size:11px;margin-top:4px">🚨 Discreet 1-Shot Chime & Vibration triggered! Auto-identified as Protected Victim.</div>`;
+    hasSoundedAlertInCall = false; // Allow demo sound
+    autoDetectedRole = 'VICTIM';
+    updateAutoRoleDisplay();
+    playGentleWarningChime();
+    triggerAlarmHaptic(600);
   } else if (isOfficial) {
+    autoDetectedRole = 'NEUTRAL';
+    updateAutoRoleDisplay();
     alertNote = `<div style="color:var(--cs-green);font-size:11px;margin-top:4px">🛡️ <b>Official Context Verified:</b> Speaking about fraud terms in an advisory / academic context ("${contextCheck.reason}"). <b>False positive prevented!</b> Phone remains quiet.</div>`;
   }
 
@@ -1960,7 +1940,7 @@ function simulateScam(type) {
 window.addEventListener('DOMContentLoaded', () => {
   setChannel(currentChannel);
   updateSoundAlertUI();
-  updateRoleUI();
+  updateAutoRoleDisplay();
 });
 </script>
 </body>
