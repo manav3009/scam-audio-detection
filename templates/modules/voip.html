@@ -1140,11 +1140,6 @@ function showHuntingToast(msg) {
     statusEl.textContent = `📞 ` + msg;
   }
 }
-  const statusEl = document.getElementById('callConnectionStatus');
-  if (statusEl) {
-    statusEl.textContent = `🔄 ` + msg;
-  }
-}
 
 // 🔄 Active Heartbeat Ping every 10s
 setInterval(() => {
