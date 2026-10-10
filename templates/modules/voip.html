@@ -615,12 +615,17 @@ body {
     <div class="card">
       <div class="card-title">
         <span>🎙️ Live Intercepted Speech</span>
-        <span id="sttStatusDot" style="color:var(--cs-green);font-size:10px">● Interceptor Active</span>
+        <span id="sttStatusDot" style="color:var(--cs-green);font-size:10px;cursor:pointer;" onclick="restartSTT()" title="Tap to reconnect speech interceptor">● Interceptor Active</span>
       </div>
       <div id="transcriptPanel" class="scroll-panel">
-        <div style="color:#64748b;text-align:center;padding:16px 0;">
+        <div class="transcript-placeholder" style="color:#64748b;text-align:center;padding:16px 0;">
           Speak to analyze conversation in real time...
         </div>
+      </div>
+      <!-- Quick Test & Instant Speech Injector -->
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <input id="quickSpeechInput" type="text" placeholder="Type or test: 'Share OTP', 'Who is this?'..." style="flex:1;background:rgba(15,23,42,0.8);border:1px solid #334155;border-radius:8px;padding:6px 10px;font-size:11px;color:#f8fafc;" onkeydown="if(event.key==='Enter') sendManualSpeechTest()" />
+        <button onclick="sendManualSpeechTest()" style="background:#0284c7;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">Send</button>
       </div>
     </div>
 
@@ -1090,10 +1095,48 @@ setInterval(() => {
   }
 }, 10000);
 
+let dataOutbox = [];
+
+function sendDataToPeer(payload) {
+  if (dataConn && dataConn.open) {
+    try {
+      dataConn.send(payload);
+      return true;
+    } catch(e) {
+      console.warn('sendDataToPeer error, queuing message:', e);
+    }
+  }
+  dataOutbox.push(payload);
+  return false;
+}
+
+function flushDataOutbox() {
+  if (!dataConn || !dataConn.open) return;
+  while (dataOutbox.length > 0) {
+    const msg = dataOutbox.shift();
+    try {
+      dataConn.send(msg);
+    } catch(e) {
+      dataOutbox.unshift(msg);
+      break;
+    }
+  }
+}
+
 function setupDataConnection(conn) {
+  if (!conn) return;
   dataConn = conn;
   dataConn.on('open', () => {
     console.log('Data connection is active with peer');
+    flushDataOutbox();
+    // Immediate handshake confirming live bidirectional channel
+    try {
+      dataConn.send({
+        type: 'PEER_SYNC',
+        sender: isActualCaller ? 'User A' : 'User B',
+        role: isActualCaller ? 'CALLER' : 'RECEIVER'
+      });
+    } catch(e){}
   });
   dataConn.on('close', () => {
     console.log('Data connection closed by peer or transient network shift.');
@@ -1102,6 +1145,7 @@ function setupDataConnection(conn) {
     console.warn('Data connection error:', err);
   });
   dataConn.on('data', (data) => {
+    if (!data) return;
     if (data.type === 'LINE_BUSY') {
       knownLineBusy[data.line || currentChannel] = true;
       updateLineStatusIndicators();
@@ -1114,23 +1158,40 @@ function setupDataConnection(conn) {
         alert("📵 Call was declined by recipient.");
       }, 300);
     } else if (data.type === 'CALL_ENDED') {
-      // The other party hung up: immediately end call locally without looping notification
+      // The other party hung up: immediately end call locally
       console.log('Received CALL_ENDED signal from peer.');
       endCall(false);
-    } else if (data.type === 'ROLE_SYNC') {
-      if (data.yourRole === 'VICTIM') {
-        autoDetectedRole = 'VICTIM';
-        updateAutoRoleDisplay();
-        triggerVictimAlert(data.score, data.keywords, `🚨 FRAUD ALERT: Suspect caller is asking for sensitive OTP / Banking credentials!`);
-      } else if (data.yourRole === 'SCAMMER') {
+    } else if (data.type === 'ROLE_LOCK' || data.type === 'ROLE_SYNC') {
+      // 🔒 HARD ASYMMETRIC ROLE LOCKING:
+      // Caller (User A) is ALWAYS locked to Scammer (Stealth Mode)
+      // Receiver (User B) is ALWAYS locked to Victim (Warning Alarm & Vibration)
+      if (isActualCaller) {
         autoDetectedRole = 'SCAMMER';
         updateAutoRoleDisplay();
-        showStealthNotice(data.score, data.keywords);
+        showStealthNotice(data.score || 95, data.keywords || ['Fraud Patterns']);
+      } else {
+        autoDetectedRole = 'VICTIM';
+        updateAutoRoleDisplay();
+        triggerVictimAlert(data.score || 95, data.keywords || ['Sensitive Info'], `🚨 FRAUD ALERT: Suspect caller is asking for sensitive OTP / Banking credentials!`);
       }
     } else if (data.type === 'FRAUD_ALERT') {
-      receiveRemoteFraudAlert(data);
+      if (isActualCaller) {
+        // Suspect caller device NEVER receives victim alarm
+        autoDetectedRole = 'SCAMMER';
+        updateAutoRoleDisplay();
+        showStealthNotice(data.score || 95, data.keywords || ['Fraud Patterns']);
+      } else {
+        // Receiver device receives full alarm
+        autoDetectedRole = 'VICTIM';
+        updateAutoRoleDisplay();
+        triggerVictimAlert(data.score || 95, data.keywords || ['Sensitive Credentials'], `🚨 FRAUD ALERT: Suspect caller is asking for sensitive OTP / Banking credentials!`);
+      }
     } else if (data.type === 'TRANSCRIPT') {
-      appendTranscript(data.speaker || 'User A', data.text, data.isDanger);
+      // Correct remote speaker attribution:
+      // If this phone is Caller (User A), the remote speaker is User B!
+      // If this phone is Receiver (User B), the remote speaker is User A!
+      const remoteSpeaker = data.speaker || (isActualCaller ? 'User B' : 'User A');
+      appendTranscript(remoteSpeaker, data.text, data.isDanger);
       if (data.text) {
         processRemoteSpokenText(data.text);
       }
@@ -1185,7 +1246,7 @@ async function executeStartCall(target) {
   }
 
   // Connect bidirectional DataChannel for fraud alert sync
-  const conn = myPeer.connect(target);
+  const conn = myPeer.connect(target, { reliable: true });
   setupDataConnection(conn);
 
   // Call the peer with audio
@@ -1204,9 +1265,7 @@ function dialCybercrimeHelpline() {
 function triggerEmergencyAutoHangup() {
   if (confirm("🚨 EMERGENCY SCAM KILLER:\n\nDo you want to immediately terminate this suspicious call and protect your device?")) {
     appendTranscript("⚠️ CALL TERMINATED BY USER VIA SCAM KILLER PROTOCOL", true);
-    if (dataConn && dataConn.open) {
-      try { dataConn.send({ type: 'TRANSCRIPT', text: 'Call terminated due to high fraud risk.', speaker: 'CallShield AI', isDanger: true }); } catch(e){}
-    }
+    sendDataToPeer({ type: 'TRANSCRIPT', text: 'Call terminated due to high fraud risk.', speaker: 'CallShield AI', isDanger: true });
     setTimeout(() => {
       endCall();
       alert("✅ Call terminated. Evidence has been safely stored in your session. Dial 1930 if money was lost.");
@@ -1436,9 +1495,9 @@ async function acceptCall() {
   setupActiveCall(incomingCallObj, callerPeerId);
 
   // Ensure bidirectional DataChannel is connected back to caller
-  if (!dataConn || !dataConn.open) {
+  if (!dataConn) {
     try {
-      const conn = myPeer.connect(callerPeerId);
+      const conn = myPeer.connect(callerPeerId, { reliable: true });
       setupDataConnection(conn);
     } catch(e){}
   }
@@ -1538,9 +1597,7 @@ function endCall(notifyPeer = true) {
   // If this device initiated the hangup, notify companion to cut automatically
   if (notifyPeer) {
     try {
-      if (dataConn && dataConn.open) {
-        dataConn.send({ type: 'CALL_ENDED' });
-      }
+      sendDataToPeer({ type: 'CALL_ENDED' });
     } catch(e){}
     try {
       if (currentCall && currentCall.peerConnection) {
@@ -1578,6 +1635,9 @@ function endCall(notifyPeer = true) {
     localMediaStream = null;
   }
   if (recognitionRestartTimer) { clearTimeout(recognitionRestartTimer); recognitionRestartTimer = null; }
+  if (interimDebounceTimer) { clearTimeout(interimDebounceTimer); interimDebounceTimer = null; }
+  interimSpeechBuffer = '';
+  lastCommittedUtterance = '';
   isRecognitionRunning = false;
   if (recognition) { try { recognition.abort(); } catch(e){} recognition = null; }
   if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
@@ -1613,6 +1673,38 @@ function toggleMute() {
 // ── 7. Speech-to-Text Interceptor & Normalizer (Continuous Bidirectional) ──
 let isRecognitionRunning = false;
 let recognitionRestartTimer = null;
+let interimSpeechBuffer = '';
+let interimDebounceTimer = null;
+let lastCommittedUtterance = '';
+
+function commitSpeechUtterance(text, isDangerHint) {
+  const trimmed = (text || '').trim();
+  if (!trimmed || trimmed === lastCommittedUtterance) return;
+  lastCommittedUtterance = trimmed;
+  processSpokenText(trimmed, true);
+}
+
+function restartSTT() {
+  if (recognition) {
+    try { isRecognitionRunning = false; recognition.abort(); } catch(e){}
+    recognition = null;
+  }
+  startContinuousSpeechInterceptor();
+  const dot = document.getElementById('sttStatusDot');
+  if (dot) {
+    dot.textContent = '● Reconnecting STT...';
+    dot.style.color = 'var(--cs-yellow)';
+  }
+}
+
+function sendManualSpeechTest() {
+  const inp = document.getElementById('quickSpeechInput');
+  if (!inp) return;
+  const val = inp.value.trim();
+  if (!val) return;
+  inp.value = '';
+  processSpokenText(val, true);
+}
 
 function startContinuousSpeechInterceptor() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1652,13 +1744,30 @@ function startContinuousSpeechInterceptor() {
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const text = event.results[i][0].transcript;
-        if (event.results[i].isFinal) final_ += text + ' ';
-        else interim += text;
+        if (event.results[i].isFinal) {
+          final_ += text + ' ';
+        } else {
+          interim += text + ' ';
+        }
       }
 
-      const currentSpoken = (final_ + ' ' + interim).trim();
-      if (currentSpoken) {
-        processSpokenText(currentSpoken, final_ ? true : false);
+      if (final_.trim()) {
+        if (interimDebounceTimer) clearTimeout(interimDebounceTimer);
+        commitSpeechUtterance(final_, false);
+        interimSpeechBuffer = '';
+      } else if (interim.trim()) {
+        interimSpeechBuffer = interim.trim();
+        // Live interim analysis for immediate threat meter score update
+        processSpokenText(interimSpeechBuffer, false);
+
+        // Debounce timer: If speaker pauses for 800ms without final result, commit utterance automatically
+        if (interimDebounceTimer) clearTimeout(interimDebounceTimer);
+        interimDebounceTimer = setTimeout(() => {
+          if (interimSpeechBuffer) {
+            commitSpeechUtterance(interimSpeechBuffer, false);
+            interimSpeechBuffer = '';
+          }
+        }, 800);
       }
     };
 
@@ -1674,11 +1783,16 @@ function startContinuousSpeechInterceptor() {
           if (currentCall && !isRecognitionRunning) {
             startContinuousSpeechInterceptor();
           }
-        }, 350);
+        }, 400);
       }
     };
 
     recognition.onend = () => {
+      // Commit any uncommitted interim speech before restart
+      if (interimSpeechBuffer) {
+        commitSpeechUtterance(interimSpeechBuffer, false);
+        interimSpeechBuffer = '';
+      }
       isRecognitionRunning = false;
       if (currentCall) {
         if (recognitionRestartTimer) clearTimeout(recognitionRestartTimer);
@@ -1686,7 +1800,7 @@ function startContinuousSpeechInterceptor() {
           if (currentCall && !isRecognitionRunning) {
             startContinuousSpeechInterceptor();
           }
-        }, 300);
+        }, 250);
       }
     };
 
@@ -1768,61 +1882,57 @@ function processSpokenText(rawText, isFinal) {
 
   if (isFinal) {
     appendTranscript(speakerLabel, rawText, finalReportedScore >= 35);
-    if (dataConn && dataConn.open) {
-      dataConn.send({ type: 'TRANSCRIPT', text: rawText, speaker: speakerLabel, isDanger: finalReportedScore >= 35 });
-    }
+    sendDataToPeer({
+      type: 'TRANSCRIPT',
+      text: rawText,
+      speaker: speakerLabel,
+      isDanger: finalReportedScore >= 35
+    });
   }
 
-  // ── GUARANTEED DUAL-LAYER SCAM INTERCEPTION (CALLER = SCAMMER, RECEIVER = VICTIM) ──
+  // ── GUARANTEED ASYMMETRIC ROLE ENFORCEMENT ──
+  // User A (Caller) is ALWAYS Scammer (Stealth Mode)
+  // User B (Receiver) is ALWAYS Victim (Pulsing Alarm & Vibration)
   if (!isOfficialContext && (finalReportedScore >= 35 || matchedList.length > 0)) {
     const isCallActive = Boolean(currentCall || (document.getElementById('callScreen') && document.getElementById('callScreen').style.display === 'block'));
 
     if (isCallActive) {
       if (!isActualCaller) {
-        // ── DEVICE 2: RECEIVER OF THE CALL ──
+        // ── DEVICE 2: RECEIVER OF THE CALL (USER B) ──
         // The person who received/answered the call is 100% THE TARGETED VICTIM!
-        // Even if their mic picks up the scammer's speech from speakerphone, THEY ARE THE VICTIM!
         autoDetectedRole = 'VICTIM';
         updateAutoRoleDisplay();
         triggerVictimAlert(finalReportedScore, matchedList, "Live Voice Detected: Caller requesting sensitive credentials (" + matchedList.join(', ') + ")!");
 
-        // Enforce that caller device is locked to SCAMMER
-        if (dataConn && dataConn.open) {
-          try {
-            dataConn.send({
-              type: 'ROLE_SYNC',
-              myRole: 'VICTIM',
-              yourRole: 'SCAMMER',
-              score: finalReportedScore,
-              keywords: matchedList
-            });
-          } catch(e){}
-        }
+        // Lock roles over WebRTC DataChannel
+        sendDataToPeer({
+          type: 'ROLE_LOCK',
+          callerRole: 'SCAMMER',
+          receiverRole: 'VICTIM',
+          score: finalReportedScore,
+          keywords: matchedList
+        });
       } else {
-        // ── DEVICE 1: CALLER WHO INITIATED THE CALL ──
+        // ── DEVICE 1: CALLER WHO INITIATED THE CALL (USER A) ──
         // The caller who initiated the call and is speaking scam words is 100% THE SCAMMER!
         autoDetectedRole = 'SCAMMER';
         updateAutoRoleDisplay();
 
         // Broadcast to receiver that Caller is SCAMMER and Receiver is VICTIM!
-        if (dataConn && dataConn.open) {
-          try {
-            dataConn.send({
-              type: 'ROLE_SYNC',
-              myRole: 'SCAMMER',
-              yourRole: 'VICTIM',
-              score: finalReportedScore,
-              keywords: matchedList,
-              text: rawText
-            });
-            dataConn.send({
-              type: 'FRAUD_ALERT',
-              score: finalReportedScore,
-              keywords: matchedList,
-              text: rawText
-            });
-          } catch(e){}
-        }
+        sendDataToPeer({
+          type: 'ROLE_LOCK',
+          callerRole: 'SCAMMER',
+          receiverRole: 'VICTIM',
+          score: finalReportedScore,
+          keywords: matchedList,
+          text: rawText
+        });
+        sendDataToPeer({
+          type: 'FRAUD_ALERT',
+          score: finalReportedScore,
+          keywords: matchedList,
+          text: rawText
+        });
 
         // Scammer device is 100% silent in stealth mode!
         showStealthNotice(finalReportedScore, matchedList);
@@ -1841,7 +1951,10 @@ function processSpokenText(rawText, isFinal) {
 // ── Autonomous Remote Speech Analysis Engine ──
 // Triggered on receiving remote audio transcript over WebRTC DataChannel (4G / 5G / Wi-Fi)
 function processRemoteSpokenText(remoteText) {
-  if (!remoteText || autoDetectedRole === 'SCAMMER') return;
+  // If this device is the CALLER (User A), it is the suspect/scammer!
+  // User A MUST NEVER BECOME THE VICTIM from remote transcripts!
+  if (!remoteText || isActualCaller || autoDetectedRole === 'SCAMMER') return;
+
   const normalized = normalizeSpokenText(remoteText);
   let totalScore = 0;
   let matchedList = [];
@@ -1862,7 +1975,7 @@ function processRemoteSpokenText(remoteText) {
 
   const finalScore = Math.min(Math.round(totalScore), 100);
   if (finalScore >= 35 || matchedList.length > 0) {
-    // Remote caller is speaking scam patterns: THIS device is the Protected Victim!
+    // Remote caller is speaking scam patterns: THIS device (User B) is the Protected Victim!
     autoDetectedRole = 'VICTIM';
     updateAutoRoleDisplay();
     triggerVictimAlert(finalScore, matchedList, `🚨 FRAUD ALERT: Caller is asking for sensitive credentials (${matchedList.join(', ')})! NEVER SHARE OTP!`);
@@ -1870,25 +1983,30 @@ function processRemoteSpokenText(remoteText) {
 }
 
 function showStealthNotice(score, keywords) {
+  // If this device is the RECEIVER (User B), it must NEVER be silent in stealth mode!
+  if (!isActualCaller && (currentCall || (document.getElementById('callScreen') && document.getElementById('callScreen').style.display === 'block'))) {
+    triggerVictimAlert(score, keywords, "🚨 FRAUD ALERT: Caller is asking for sensitive credentials!");
+    return;
+  }
+
   autoDetectedRole = 'SCAMMER';
   updateAutoRoleDisplay();
 
   const sb = document.getElementById('stealthBanner');
   if (sb) {
     sb.classList.add('active');
-    sb.innerHTML = `<b>🤫 Stealth Mode Active:</b> Scam patterns detected (<b>${keywords.join(', ')}</b>). Real-time warning sent to Victim's phone only. This suspect device remains silent.`;
+    sb.innerHTML = `<b>🤫 Stealth Mode Active:</b> Scam patterns detected (<b>${(keywords || []).join(', ')}</b>). Real-time warning sent to Victim's phone only. This suspect device remains silent.`;
   }
   const fb = document.getElementById('fraudBanner');
   if (fb) fb.classList.remove('active'); // Scammer NEVER sees screaming red alarm
-  appendTimeline(score, `[Scam Speech Flagged - Stealth Active]: ${keywords.join(', ')}`, keywords);
+  appendTimeline(score, `[Scam Speech Flagged - Stealth Active]: ${(keywords || []).join(', ')}`, keywords);
 }
 
 // Triggered on the Victim's device (or during standalone test mode)
 function triggerVictimAlert(score, keywords, msg) {
-  const isCallActive = Boolean(currentCall || (document.getElementById('callScreen') && document.getElementById('callScreen').style.display === 'block'));
-
-  // If in an active call and this device is the CALLER or was marked SCAMMER: NEVER ALERT OR BECOME VICTIM!
-  if (isCallActive && (isActualCaller || autoDetectedRole === 'SCAMMER')) {
+  // If this device is the CALLER (User A), it is the suspect/scammer!
+  // CALLER NEVER ALERTS OR VIBRATES!
+  if (isActualCaller) {
     showStealthNotice(score, keywords);
     return;
   }
@@ -1947,13 +2065,13 @@ function updateRiskDisplay(score, level, category) {
 }
 
 function appendTranscript(speakerOrText, textOrDanger, isDangerArg) {
-  let speaker = 'User';
+  let speaker = isActualCaller ? 'User A' : 'User B';
   let text = '';
   let isDanger = false;
 
   if (typeof textOrDanger === 'boolean') {
     // 2-arg call: (text, isDanger)
-    text = speakerOrText;
+    text = String(speakerOrText);
     isDanger = textOrDanger;
     speaker = isActualCaller ? 'User A' : 'User B';
   } else if (typeof textOrDanger === 'string') {
@@ -1966,22 +2084,35 @@ function appendTranscript(speakerOrText, textOrDanger, isDangerArg) {
     isDanger = Boolean(isDangerArg);
   }
 
+  if (!text || !text.trim()) return;
+
   const p = document.getElementById('transcriptPanel');
   if (!p) return;
 
+  // Remove initial placeholder if present
+  const placeholder = p.querySelector('.transcript-placeholder');
+  if (placeholder) placeholder.remove();
+
+  // Normalize speaker name: User A is caller, User B is receiver
+  let cleanSpeaker = 'User A';
+  if (speaker.includes('User B')) cleanSpeaker = 'User B';
+  else if (speaker.includes('User A')) cleanSpeaker = 'User A';
+  else cleanSpeaker = speaker;
+
+  const isUserA = cleanSpeaker === 'User A';
+  const speakerColor = isUserA ? '#38bdf8' : '#00ff87';
+  const speakerRoleTag = isUserA ? '(Caller)' : '(Receiver)';
+
   const d = document.createElement('div');
   d.className = `transcript-bubble ${isDanger ? 'danger' : ''}`;
-  
-  const speakerColor = speaker.includes('User A') ? '#38bdf8' : (speaker.includes('User B') ? '#00ff87' : 'var(--cs-cyan)');
-  const tagRole = speaker.includes('User A') ? '(Caller)' : (speaker.includes('User B') ? '(Receiver)' : '');
 
   d.innerHTML = `
     <div class="transcript-speaker" style="display:flex;justify-content:space-between;align-items:center;">
-      <span><b style="color:${speakerColor};font-size:12px;">${speaker}</b> <span style="font-size:10px;color:#94a3b8">${tagRole}</span></span>
+      <span><b style="color:${speakerColor};font-size:12px;">${cleanSpeaker}</b> <span style="font-size:10px;color:#94a3b8">${speakerRoleTag}</span></span>
       <span style="font-size:10px;color:#64748b;">${new Date().toLocaleTimeString()}</span>
     </div>
-    <div style="margin-top:3px;font-size:13px;line-height:1.45;">
-      <b style="color:${speakerColor}">${speaker}:</b> ${text}
+    <div style="margin-top:3px;font-size:13px;line-height:1.45;color:#f8fafc;">
+      <b style="color:${speakerColor}">${cleanSpeaker}:</b> ${text}
     </div>
   `;
   p.appendChild(d);
