@@ -1096,8 +1096,7 @@ function setupDataConnection(conn) {
     console.log('Data connection is active with peer');
   });
   dataConn.on('close', () => {
-    console.log('Data connection closed by peer.');
-    if (currentCall) endCall(false);
+    console.log('Data connection closed by peer or transient network shift.');
   });
   dataConn.on('error', (err) => {
     console.warn('Data connection error:', err);
@@ -1131,7 +1130,7 @@ function setupDataConnection(conn) {
     } else if (data.type === 'FRAUD_ALERT') {
       receiveRemoteFraudAlert(data);
     } else if (data.type === 'TRANSCRIPT') {
-      appendTranscript(data.speaker + ': ' + data.text, data.isDanger);
+      appendTranscript(data.speaker || 'User A', data.text, data.isDanger);
       if (data.text) {
         processRemoteSpokenText(data.text);
       }
@@ -1432,13 +1431,14 @@ async function acceptCall() {
     return;
   }
 
+  const callerPeerId = incomingCallObj.peer;
   incomingCallObj.answer(localMediaStream);
-  setupActiveCall(incomingCallObj, incomingCallObj.peer);
+  setupActiveCall(incomingCallObj, callerPeerId);
 
   // Ensure bidirectional DataChannel is connected back to caller
   if (!dataConn || !dataConn.open) {
     try {
-      const conn = myPeer.connect(incomingCallObj.peer);
+      const conn = myPeer.connect(callerPeerId);
       setupDataConnection(conn);
     } catch(e){}
   }
@@ -1474,15 +1474,16 @@ function setupActiveCall(call, peerName) {
   document.getElementById('lobbyScreen').style.display = 'none';
   document.getElementById('callScreen').style.display = 'block';
   
-  const peerDisplay = isActualCaller ? 'Connected to Companion Line' : 'Connected to Companion Line';
-  document.getElementById('callPeerName').textContent = `Line ${currentChannel} · ${peerDisplay}`;
-  document.getElementById('callConnectionStatus').textContent = '🛡️ Connecting...';
+  const myUserLabel = isActualCaller ? 'User A (Caller)' : 'User B (Receiver)';
+  const peerDisplay = isActualCaller ? 'Connected to User B' : 'Connected to User A';
+  document.getElementById('callPeerName').textContent = `Line ${currentChannel} · ${myUserLabel}`;
+  document.getElementById('callConnectionStatus').textContent = `🛡️ Live Interception · ${peerDisplay}`;
 
   autoDetectedRole = 'NEUTRAL';
   hasSoundedAlertInCall = false;
   updateAutoRoleDisplay();
 
-  // 1. Audio stream & remote track ended detection
+  // 1. Audio stream setup
   call.on('stream', (remoteStream) => {
     const audioEl = document.getElementById('remoteAudio');
     if (audioEl) {
@@ -1490,28 +1491,23 @@ function setupActiveCall(call, peerName) {
       audioEl.volume = 0.75; // Balanced volume to prevent acoustic feedback loop
       audioEl.play().catch(e => console.log('Audio autoplay unlock note:', e));
     }
-    // If companion stops their audio stream, immediately cut call on this side!
-    remoteStream.getTracks().forEach(track => {
-      track.onended = () => {
-        console.log('Remote audio track ended. Automatically cutting call.');
-        endCall(false);
-      };
-    });
     document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
   });
 
-  // 2. Underlying WebRTC RTCPeerConnection disconnection detection
+  // 2. Underlying WebRTC RTCPeerConnection monitoring (DO NOT hang up on transient 'disconnected')
   if (call.peerConnection) {
     const pc = call.peerConnection;
     pc.addEventListener('connectionstatechange', () => {
-      if (pc.connectionState === 'disconnected' || pc.connectionState === 'closed' || pc.connectionState === 'failed') {
-        console.log('PeerConnection disconnected/closed. Automatically cutting call.');
+      console.log('RTCPeerConnection state:', pc.connectionState);
+      if (pc.connectionState === 'closed') {
+        console.log('PeerConnection permanently closed. Cleaning up call.');
         endCall(false);
       }
     });
     pc.addEventListener('iceconnectionstatechange', () => {
-      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed' || pc.iceConnectionState === 'failed') {
-        console.log('ICE connection disconnected/closed. Automatically cutting call.');
+      console.log('ICE connection state:', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'closed') {
+        console.log('ICE permanently closed. Cleaning up call.');
         endCall(false);
       }
     });
@@ -1519,12 +1515,11 @@ function setupActiveCall(call, peerName) {
 
   // 3. PeerJS call close & error events
   call.on('close', () => {
-    console.log('PeerJS call closed. Automatically cutting call.');
+    console.log('PeerJS call closed. Hanging up.');
     endCall(false);
   });
   call.on('error', (e) => {
-    console.log('PeerJS call error:', e);
-    endCall(false);
+    console.warn('PeerJS call non-fatal error:', e);
   });
 
   startCallTimer();
@@ -1582,7 +1577,9 @@ function endCall(notifyPeer = true) {
     try { localMediaStream.getTracks().forEach(t => t.stop()); } catch(e){}
     localMediaStream = null;
   }
-  if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
+  if (recognitionRestartTimer) { clearTimeout(recognitionRestartTimer); recognitionRestartTimer = null; }
+  isRecognitionRunning = false;
+  if (recognition) { try { recognition.abort(); } catch(e){} recognition = null; }
   if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
 
   // 3. Gracefully tear down PeerJS connection objects after packet flushes
@@ -1613,7 +1610,10 @@ function toggleMute() {
   btn.classList.toggle('active', isMuted);
 }
 
-// ── 7. Speech-to-Text Interceptor & Normalizer ─────────────────────────────
+// ── 7. Speech-to-Text Interceptor & Normalizer (Continuous Bidirectional) ──
+let isRecognitionRunning = false;
+let recognitionRestartTimer = null;
+
 function startContinuousSpeechInterceptor() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const dot = document.getElementById('sttStatusDot');
@@ -1622,16 +1622,24 @@ function startContinuousSpeechInterceptor() {
     return;
   }
 
+  if (recognitionRestartTimer) {
+    clearTimeout(recognitionRestartTimer);
+    recognitionRestartTimer = null;
+  }
+
   try {
     if (recognition) {
-      try { recognition.stop(); } catch(e){}
+      try { isRecognitionRunning = false; recognition.abort(); } catch(e){}
+      recognition = null;
     }
     recognition = new SR();
     recognition.lang = 'en-IN';
     recognition.continuous = true;
     recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
+      isRecognitionRunning = true;
       if (dot) {
         dot.textContent = '● Listening (Both Sides)';
         dot.style.color = 'var(--cs-green)';
@@ -1655,25 +1663,38 @@ function startContinuousSpeechInterceptor() {
     };
 
     recognition.onerror = (e) => {
+      console.log('STT Error:', e.error);
+      isRecognitionRunning = false;
       if (dot && e.error !== 'no-speech') {
         dot.textContent = `● STT: ${e.error}`;
       }
       if (currentCall) {
-        setTimeout(() => {
-          try { recognition.start(); } catch(ex){}
-        }, 400);
+        if (recognitionRestartTimer) clearTimeout(recognitionRestartTimer);
+        recognitionRestartTimer = setTimeout(() => {
+          if (currentCall && !isRecognitionRunning) {
+            startContinuousSpeechInterceptor();
+          }
+        }, 350);
       }
     };
 
     recognition.onend = () => {
+      isRecognitionRunning = false;
       if (currentCall) {
-        setTimeout(() => {
-          try { recognition.start(); } catch(ex){}
-        }, 400);
+        if (recognitionRestartTimer) clearTimeout(recognitionRestartTimer);
+        recognitionRestartTimer = setTimeout(() => {
+          if (currentCall && !isRecognitionRunning) {
+            startContinuousSpeechInterceptor();
+          }
+        }, 300);
       }
     };
 
-    try { recognition.start(); } catch(e){}
+    try {
+      recognition.start();
+    } catch(e) {
+      console.warn("Speech recognition start warning:", e);
+    }
   } catch(e) {
     console.warn("Speech interceptor init note:", e);
   }
@@ -1742,10 +1763,11 @@ function processSpokenText(rawText, isFinal) {
   // Update AI Voice Biometrics, Acoustic Pitch & Official Context Banner
   updateVoiceBiometrics(finalReportedScore, rawText, isOfficialContext);
 
-  const speakerLabel = (autoDetectedRole === 'SCAMMER') ? 'Suspect (Caller)' : (autoDetectedRole === 'VICTIM' ? 'Protected Victim' : 'Active Speaker');
+  // Explicit User Labels: User A = Caller, User B = Receiver
+  const speakerLabel = isActualCaller ? 'User A' : 'User B';
 
   if (isFinal) {
-    appendTranscript(`${speakerLabel}: ${rawText}`, finalReportedScore >= 35);
+    appendTranscript(speakerLabel, rawText, finalReportedScore >= 35);
     if (dataConn && dataConn.open) {
       dataConn.send({ type: 'TRANSCRIPT', text: rawText, speaker: speakerLabel, isDanger: finalReportedScore >= 35 });
     }
@@ -1924,13 +1946,43 @@ function updateRiskDisplay(score, level, category) {
   document.getElementById('riskCategoryText').textContent = category;
 }
 
-function appendTranscript(text, isDanger) {
+function appendTranscript(speakerOrText, textOrDanger, isDangerArg) {
+  let speaker = 'User';
+  let text = '';
+  let isDanger = false;
+
+  if (typeof textOrDanger === 'boolean') {
+    // 2-arg call: (text, isDanger)
+    text = speakerOrText;
+    isDanger = textOrDanger;
+    speaker = isActualCaller ? 'User A' : 'User B';
+  } else if (typeof textOrDanger === 'string') {
+    // 3-arg call: (speaker, text, isDanger)
+    speaker = speakerOrText || (isActualCaller ? 'User A' : 'User B');
+    text = textOrDanger;
+    isDanger = Boolean(isDangerArg);
+  } else {
+    text = String(speakerOrText);
+    isDanger = Boolean(isDangerArg);
+  }
+
   const p = document.getElementById('transcriptPanel');
+  if (!p) return;
+
   const d = document.createElement('div');
   d.className = `transcript-bubble ${isDanger ? 'danger' : ''}`;
+  
+  const speakerColor = speaker.includes('User A') ? '#38bdf8' : (speaker.includes('User B') ? '#00ff87' : 'var(--cs-cyan)');
+  const tagRole = speaker.includes('User A') ? '(Caller)' : (speaker.includes('User B') ? '(Receiver)' : '');
+
   d.innerHTML = `
-    <div class="transcript-speaker">SPEECH · ${new Date().toLocaleTimeString()}</div>
-    <div>${text}</div>
+    <div class="transcript-speaker" style="display:flex;justify-content:space-between;align-items:center;">
+      <span><b style="color:${speakerColor};font-size:12px;">${speaker}</b> <span style="font-size:10px;color:#94a3b8">${tagRole}</span></span>
+      <span style="font-size:10px;color:#64748b;">${new Date().toLocaleTimeString()}</span>
+    </div>
+    <div style="margin-top:3px;font-size:13px;line-height:1.45;">
+      <b style="color:${speakerColor}">${speaker}:</b> ${text}
+    </div>
   `;
   p.appendChild(d);
   p.scrollTop = p.scrollHeight;
