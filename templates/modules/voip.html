@@ -1095,6 +1095,13 @@ function setupDataConnection(conn) {
   dataConn.on('open', () => {
     console.log('Data connection is active with peer');
   });
+  dataConn.on('close', () => {
+    console.log('Data connection closed by peer.');
+    if (currentCall) endCall(false);
+  });
+  dataConn.on('error', (err) => {
+    console.warn('Data connection error:', err);
+  });
   dataConn.on('data', (data) => {
     if (data.type === 'LINE_BUSY') {
       knownLineBusy[data.line || currentChannel] = true;
@@ -1104,14 +1111,15 @@ function setupDataConnection(conn) {
       // Recipient pressed decline button: immediately end call on caller side
       showHuntingToast("Call was declined by recipient.");
       setTimeout(() => {
-        endCall();
+        endCall(false);
         alert("📵 Call was declined by recipient.");
       }, 300);
     } else if (data.type === 'CALL_ENDED') {
-      // The other party hung up: immediately end call locally
-      endCall();
+      // The other party hung up: immediately end call locally without looping notification
+      console.log('Received CALL_ENDED signal from peer.');
+      endCall(false);
     } else if (data.type === 'ROLE_SYNC') {
-      if (data.yourRole === 'VICTIM' && autoDetectedRole !== 'SCAMMER') {
+      if (data.yourRole === 'VICTIM') {
         autoDetectedRole = 'VICTIM';
         updateAutoRoleDisplay();
         triggerVictimAlert(data.score, data.keywords, `🚨 FRAUD ALERT: Suspect caller is asking for sensitive OTP / Banking credentials!`);
@@ -1474,6 +1482,7 @@ function setupActiveCall(call, peerName) {
   hasSoundedAlertInCall = false;
   updateAutoRoleDisplay();
 
+  // 1. Audio stream & remote track ended detection
   call.on('stream', (remoteStream) => {
     const audioEl = document.getElementById('remoteAudio');
     if (audioEl) {
@@ -1481,11 +1490,42 @@ function setupActiveCall(call, peerName) {
       audioEl.volume = 0.75; // Balanced volume to prevent acoustic feedback loop
       audioEl.play().catch(e => console.log('Audio autoplay unlock note:', e));
     }
+    // If companion stops their audio stream, immediately cut call on this side!
+    remoteStream.getTracks().forEach(track => {
+      track.onended = () => {
+        console.log('Remote audio track ended. Automatically cutting call.');
+        endCall(false);
+      };
+    });
     document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
   });
 
-  call.on('close', () => { endCall(); });
-  call.on('error', () => { endCall(); });
+  // 2. Underlying WebRTC RTCPeerConnection disconnection detection
+  if (call.peerConnection) {
+    const pc = call.peerConnection;
+    pc.addEventListener('connectionstatechange', () => {
+      if (pc.connectionState === 'disconnected' || pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+        console.log('PeerConnection disconnected/closed. Automatically cutting call.');
+        endCall(false);
+      }
+    });
+    pc.addEventListener('iceconnectionstatechange', () => {
+      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed' || pc.iceConnectionState === 'failed') {
+        console.log('ICE connection disconnected/closed. Automatically cutting call.');
+        endCall(false);
+      }
+    });
+  }
+
+  // 3. PeerJS call close & error events
+  call.on('close', () => {
+    console.log('PeerJS call closed. Automatically cutting call.');
+    endCall(false);
+  });
+  call.on('error', (e) => {
+    console.log('PeerJS call error:', e);
+    endCall(false);
+  });
 
   startCallTimer();
   
@@ -1498,15 +1538,35 @@ function setupActiveCall(call, peerName) {
   }, 300);
 }
 
-// ── 6. End Call ────────────────────────────────────────────────────────────
-function endCall() {
-  // Notify other party to automatically cut their call screen too
-  try {
-    if (dataConn && dataConn.open) {
-      dataConn.send({ type: 'CALL_ENDED' });
-    }
-  } catch(e){}
+// ── 6. End Call (Guaranteed Automatic Cut on Both Devices) ──────────────────
+function endCall(notifyPeer = true) {
+  // If this device initiated the hangup, notify companion to cut automatically
+  if (notifyPeer) {
+    try {
+      if (dataConn && dataConn.open) {
+        dataConn.send({ type: 'CALL_ENDED' });
+      }
+    } catch(e){}
+    try {
+      if (currentCall && currentCall.peerConnection) {
+        currentCall.peerConnection.close();
+      }
+    } catch(e){}
+  }
 
+  // 1. Immediately switch UI back to lobby so user has 0ms perceived lag
+  document.getElementById('callScreen').style.display = 'none';
+  document.getElementById('lobbyScreen').style.display = 'block';
+  document.getElementById('fraudBanner').classList.remove('active');
+  document.getElementById('stealthBanner').classList.remove('active');
+  peakRisk = 0;
+  updateRiskDisplay(0, 'LOW RISK', '—');
+
+  autoDetectedRole = 'NEUTRAL';
+  hasSoundedAlertInCall = false;
+  updateAutoRoleDisplay();
+
+  // 2. Clean up media streams, pitch tracker, and speech recognizer
   if (audioPitchTimer) { clearInterval(audioPitchTimer); audioPitchTimer = null; }
   pitchSamples = [];
 
@@ -1518,25 +1578,18 @@ function endCall() {
     } catch(e){}
   }
 
-  if (currentCall) { try { currentCall.close(); } catch(e){} currentCall = null; }
-  if (dataConn) { try { dataConn.close(); } catch(e){} dataConn = null; }
   if (localMediaStream) {
-    localMediaStream.getTracks().forEach(t => t.stop());
+    try { localMediaStream.getTracks().forEach(t => t.stop()); } catch(e){}
     localMediaStream = null;
   }
   if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
   if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
 
-  autoDetectedRole = 'NEUTRAL';
-  hasSoundedAlertInCall = false;
-  updateAutoRoleDisplay();
-
-  document.getElementById('callScreen').style.display = 'none';
-  document.getElementById('lobbyScreen').style.display = 'block';
-  document.getElementById('fraudBanner').classList.remove('active');
-  document.getElementById('stealthBanner').classList.remove('active');
-  peakRisk = 0;
-  updateRiskDisplay(0, 'LOW RISK', '—');
+  // 3. Gracefully tear down PeerJS connection objects after packet flushes
+  setTimeout(() => {
+    if (currentCall) { try { currentCall.close(); } catch(e){} currentCall = null; }
+    if (dataConn) { try { dataConn.close(); } catch(e){} dataConn = null; }
+  }, 250);
 }
 
 function startCallTimer() {
@@ -1698,23 +1751,38 @@ function processSpokenText(rawText, isFinal) {
     }
   }
 
-  // ── GUARANTEED DUAL-LAYER SCAM INTERCEPTION (MUTUALLY EXCLUSIVE ROLES) ──
+  // ── GUARANTEED DUAL-LAYER SCAM INTERCEPTION (CALLER = SCAMMER, RECEIVER = VICTIM) ──
   if (!isOfficialContext && (finalReportedScore >= 35 || matchedList.length > 0)) {
     const isCallActive = Boolean(currentCall || (document.getElementById('callScreen') && document.getElementById('callScreen').style.display === 'block'));
 
     if (isCallActive) {
-      if (autoDetectedRole === 'VICTIM') {
-        // This phone is ALREADY confirmed as VICTIM (it was dialed or received remote alert).
-        // Any speech captured on mic here is victim speaking or acoustic feedback.
-        // It stays VICTIM!
+      if (!isActualCaller) {
+        // ── DEVICE 2: RECEIVER OF THE CALL ──
+        // The person who received/answered the call is 100% THE TARGETED VICTIM!
+        // Even if their mic picks up the scammer's speech from speakerphone, THEY ARE THE VICTIM!
+        autoDetectedRole = 'VICTIM';
+        updateAutoRoleDisplay();
         triggerVictimAlert(finalReportedScore, matchedList, "Live Voice Detected: Caller requesting sensitive credentials (" + matchedList.join(', ') + ")!");
+
+        // Enforce that caller device is locked to SCAMMER
+        if (dataConn && dataConn.open) {
+          try {
+            dataConn.send({
+              type: 'ROLE_SYNC',
+              myRole: 'VICTIM',
+              yourRole: 'SCAMMER',
+              score: finalReportedScore,
+              keywords: matchedList
+            });
+          } catch(e){}
+        }
       } else {
-        // The microphone on this device spoke scam words!
-        // THIS DEVICE IS 100% THE SCAMMER!
+        // ── DEVICE 1: CALLER WHO INITIATED THE CALL ──
+        // The caller who initiated the call and is speaking scam words is 100% THE SCAMMER!
         autoDetectedRole = 'SCAMMER';
         updateAutoRoleDisplay();
 
-        // Broadcast to companion device that this device is SCAMMER and companion is VICTIM!
+        // Broadcast to receiver that Caller is SCAMMER and Receiver is VICTIM!
         if (dataConn && dataConn.open) {
           try {
             dataConn.send({
@@ -1793,10 +1861,12 @@ function showStealthNotice(score, keywords) {
   appendTimeline(score, `[Scam Speech Flagged - Stealth Active]: ${keywords.join(', ')}`, keywords);
 }
 
-// Triggered on the Victim's device (or during test mode)
+// Triggered on the Victim's device (or during standalone test mode)
 function triggerVictimAlert(score, keywords, msg) {
-  // If this device was identified as SCAMMER, ABSOLUTELY NEVER ALERT OR BECOME VICTIM!
-  if (autoDetectedRole === 'SCAMMER') {
+  const isCallActive = Boolean(currentCall || (document.getElementById('callScreen') && document.getElementById('callScreen').style.display === 'block'));
+
+  // If in an active call and this device is the CALLER or was marked SCAMMER: NEVER ALERT OR BECOME VICTIM!
+  if (isCallActive && (isActualCaller || autoDetectedRole === 'SCAMMER')) {
     showStealthNotice(score, keywords);
     return;
   }
@@ -1832,8 +1902,8 @@ function triggerVictimAlert(score, keywords, msg) {
 }
 
 function receiveRemoteFraudAlert(data) {
-  // If this device is the scammer, ignore incoming alert
-  if (autoDetectedRole === 'SCAMMER') return;
+  // If this device is the caller or marked as scammer, ignore incoming alert
+  if (isActualCaller || autoDetectedRole === 'SCAMMER') return;
 
   // Remote scammer device senses fraud: alert this VICTIM phone immediately!
   autoDetectedRole = 'VICTIM';
@@ -1889,6 +1959,8 @@ function appendTimeline(score, text, kws) {
 
 // ── 9. Hardware Vibration & Gentle Sound Chime ─────────────────────────────
 function triggerAlarmHaptic(ms) {
+  const isCallActive = Boolean(currentCall || (document.getElementById('callScreen') && document.getElementById('callScreen').style.display === 'block'));
+  if (isCallActive && isActualCaller) return; // Caller is suspect, NEVER vibrate!
   if (autoDetectedRole === 'SCAMMER') return; // Guaranteed: Scammer device NEVER vibrates
 
   const duration = ms > 0 ? ms : 700;
@@ -1911,6 +1983,8 @@ function triggerAlarmHaptic(ms) {
 let hasSoundedAlertInCall = false;
 let lastChimeTimestamp = 0;
 function playGentleWarningChime() {
+  const isCallActive = Boolean(currentCall || (document.getElementById('callScreen') && document.getElementById('callScreen').style.display === 'block'));
+  if (isCallActive && isActualCaller) return; // Caller is suspect, NEVER sound chime!
   if (autoDetectedRole === 'SCAMMER' || !isSoundAlertEnabled) return; // Scammer device is ALWAYS silent!
   const now = Date.now();
   if (now - lastChimeTimestamp < 15000) return; // 15-second minimum throttle, NEVER LOOPS!
