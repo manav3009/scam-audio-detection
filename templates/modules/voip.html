@@ -99,6 +99,20 @@ body {
   color: var(--cs-cyan);
   box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
 }
+.channel-pill.busy {
+  border-color: var(--cs-red);
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+.line-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+.dot-idle { background: #10b981; }
+.dot-busy { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
 
 /* ── Device Persona / Role Selector ── */
 .device-selector {
@@ -413,29 +427,56 @@ body {
   <!-- ============================================================= -->
   <div id="lobbyScreen">
     
-    <!-- Step 1: Inter-City Call Line & City Hub Selector -->
+    <!-- 1. Inter-City Call Lines with Live Occupancy Indicators -->
     <div class="card">
       <div class="card-title">
-        <span>🌐 1. Inter-City Call Line & Gateway</span>
-        <span id="channelBadge" style="color:var(--cs-cyan);font-size:11px">Line 101 · All-India Hub</span>
+        <span>🌐 Inter-City Live Lines & Busy Status</span>
+        <span id="channelBadge" style="color:var(--cs-cyan);font-size:11px">Line 101 · Online</span>
       </div>
       <div style="font-size:12px;color:#94a3b8;margin-bottom:8px">
-        Works seamlessly across different cities & states (e.g., Delhi, Mumbai, Bengaluru, Pune, Ahmedabad) over 4G/5G/Broadband:
+        Select any active line. Dots indicate real-time occupancy (<span style="color:#10b981;font-weight:bold;">● Free</span> / <span style="color:#ef4444;font-weight:bold;">● Busy</span>):
       </div>
       <div class="channel-selector">
-        <button class="channel-pill active" id="chBtn101" onclick="setChannel('101')">📡 Line 101 (National)</button>
-        <button class="channel-pill" id="chBtn102" onclick="setChannel('102')">📡 Line 102 (Metro)</button>
-        <button class="channel-pill" id="chBtn103" onclick="setChannel('103')">📡 Line 103 (Inter-City)</button>
-        <button class="channel-pill" id="chBtn104" onclick="setChannel('104')">📡 Line 104 (Express)</button>
-      </div>
-      <div class="input-row">
-        <input type="text" id="customChannelInput" class="cs-input" placeholder="Or Inter-City Phone / Room (e.g. 9876543210 or MUMBAI-1)">
-        <button class="btn-preset" onclick="applyCustomChannel()">Set Inter-City Line</button>
+        <button class="channel-pill active" id="chBtn101" onclick="setChannel('101')">
+          <span class="line-status-dot dot-idle" id="dot101"></span>Line 101
+        </button>
+        <button class="channel-pill" id="chBtn102" onclick="setChannel('102')">
+          <span class="line-status-dot dot-idle" id="dot102"></span>Line 102
+        </button>
+        <button class="channel-pill" id="chBtn103" onclick="setChannel('103')">
+          <span class="line-status-dot dot-idle" id="dot103"></span>Line 103
+        </button>
+        <button class="channel-pill" id="chBtn104" onclick="setChannel('104')">
+          <span class="line-status-dot dot-idle" id="dot104"></span>Line 104
+        </button>
       </div>
 
-      <!-- Quick City Hub Selector -->
+      <!-- Live Line Busy Alert Notification (Shown if selected line is currently occupied) -->
+      <div id="lineBusyNotice" style="display:none;background:rgba(239,68,68,0.15);border:1px solid var(--cs-red);border-radius:10px;padding:12px;margin:10px 0;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">⚠️</span>
+          <div>
+            <div style="color:var(--cs-red);font-weight:bold;font-size:13px;" id="busyNoticeTitle">Line 101 is Currently Busy!</div>
+            <div style="color:#fecaca;font-size:11px;margin-top:2px;" id="busyNoticeDesc">
+              Another conversation is in progress. Please wait until the line is clear or choose another line.
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px;">
+          <button class="btn-preset" style="background:#ef4444;color:#fff;border:none;padding:6px 12px;font-size:11px;font-weight:bold;" onclick="autoSelectFreeLine()">
+            🔄 Auto-Switch to Available Line
+          </button>
+        </div>
+      </div>
+
+      <div class="input-row">
+        <input type="text" id="customChannelInput" class="cs-input" placeholder="Or Custom Room / Mobile # (e.g. 9876543210 or MUMBAI-1)">
+        <button class="btn-preset" onclick="applyCustomChannel()">Set Custom Line</button>
+      </div>
+
+      <!-- Quick City Hubs -->
       <div style="display:flex;gap:6px;margin-top:10px;overflow-x:auto;padding-bottom:4px;">
-        <span style="font-size:11px;color:#64748b;align-self:center;white-space:nowrap;">Quick Hubs:</span>
+        <span style="font-size:11px;color:#64748b;align-self:center;white-space:nowrap;">Hubs:</span>
         <button class="btn-preset" style="padding:4px 8px;font-size:11px" onclick="setChannel('DELHI-1')">🏛️ Delhi</button>
         <button class="btn-preset" style="padding:4px 8px;font-size:11px" onclick="setChannel('MUMBAI-1')">🌊 Mumbai</button>
         <button class="btn-preset" style="padding:4px 8px;font-size:11px" onclick="setChannel('BLR-1')">🚀 Bengaluru</button>
@@ -443,29 +484,18 @@ body {
       </div>
     </div>
 
-    <!-- Step 2: Device Role Selector -->
+    <!-- 2. Direct 1-Tap Calling Hub (No Caller/Receiver Selection Needed) -->
     <div class="card">
       <div class="card-title">
-        <span>📱 2. Choose What This Phone Does</span>
-        <span id="roleBadge" class="role-badge-pill role-victim-badge">🛡️ Receiver (Victim)</span>
-      </div>
-      <div style="font-size:12px;color:#94a3b8;margin-bottom:10px">
-        One phone is <b>Caller</b>, the other phone is <b>Receiver (Victim)</b>. The victim receives alerts & vibrations!
-      </div>
-      <div class="device-selector">
-        <button id="btnRoleCaller" class="device-btn caller" onclick="setUserRole('CALLER')">
-          📞 I AM CALLING<br><span style="font-size:10px;font-weight:400;color:var(--cs-orange)">Dials Phone over Internet</span>
-        </button>
-        <button id="btnRoleVictim" class="device-btn active victim" onclick="setUserRole('RECEIVER')">
-          🛡️ I AM RECEIVING<br><span style="font-size:10px;font-weight:400;color:var(--cs-green)">Protected Victim (Alerts ON)</span>
-        </button>
+        <span>📞 Instant Live Call Shield</span>
+        <span id="roleBadge" class="role-badge-pill role-victim-badge">🛡️ AI Scam Interceptor ON</span>
       </div>
 
-      <!-- Discrete Warning Sound Preference Toggle -->
+      <!-- Warning Sound Preference Toggle -->
       <div style="display:flex;justify-content:space-between;align-items:center;background:#030712;padding:10px 12px;border-radius:10px;margin-bottom:12px;border:1px solid #334155;">
         <div>
           <div style="font-size:12px;font-weight:700;color:#fff">🔔 Warning Chime Sound</div>
-          <div style="font-size:10px;color:#94a3b8">Subtle discreet chime (10s throttle)</div>
+          <div style="font-size:10px;color:#94a3b8">Subtle discreet chime on scam detection (10s throttle)</div>
         </div>
         <button id="btnSoundAlertToggle" class="btn-preset" style="padding:6px 12px;color:var(--cs-cyan)" onclick="toggleSoundAlert()">
           🔊 Sound: ON
@@ -475,11 +505,11 @@ body {
       <!-- Giant 1-Tap Call Action Button -->
       <button id="btnMainCallAction" class="call-big-btn" onclick="triggerMainCall()">
         <span>📞</span>
-        <span id="mainCallBtnText">CALL RECEIVER ON LINE 101</span>
+        <span id="mainCallBtnText">CALL ON LINE 101 NOW</span>
       </button>
 
       <div style="font-size:11px;color:#64748b;margin-top:10px;text-align:center" id="roleExplainer">
-        💡 Tap above to call. When anyone speaks scam words (OTP, KYC, CVV, blocked), <b>the Receiver (Victim) phone will immediately vibrate and alarm</b>!
+        💡 Tap once to call. If the line is busy, CallShield will alert you or auto-roll to the next free channel.
       </div>
     </div>
 
@@ -742,10 +772,17 @@ function updateSoundAlertUI() {
   }
 }
 
-// ── 1. Channel & Role Configuration ────────────────────────────────────────
+// ── 1. Unified Peer Registration & Real-Time Busy Line Tracker ────────────
 let currentChannel = localStorage.getItem('cs_channel') || '101';
-// Role: 'RECEIVER' (Protected Victim by default) or 'CALLER'
-let currentUserRole = localStorage.getItem('cs_user_role') || 'RECEIVER';
+let currentUserRole = 'AUTO'; // Unified auto-mode (both devices listen & can call simultaneously)
+let knownLineBusy = {}; // { '101': false, '102': false, '103': false, '104': false }
+
+// Generate or retrieve persistent unique device ID for multi-party call separation
+let myDeviceId = localStorage.getItem('cs_device_id');
+if (!myDeviceId) {
+  myDeviceId = 'dev_' + Math.random().toString(36).substring(2, 8);
+  localStorage.setItem('cs_device_id', myDeviceId);
+}
 
 function setChannel(ch) {
   currentChannel = String(ch).replace(/[^a-zA-Z0-9]/g, '');
@@ -755,8 +792,16 @@ function setChannel(ch) {
   document.querySelectorAll('.channel-pill').forEach(btn => {
     btn.classList.toggle('active', btn.id === `chBtn${currentChannel}`);
   });
-  document.getElementById('channelBadge').textContent = `Line ${currentChannel}`;
-  updateRoleAndUI();
+  document.getElementById('channelBadge').textContent = `Line ${currentChannel} · Active`;
+  const callBtnText = document.getElementById('mainCallBtnText');
+  if (callBtnText) {
+    callBtnText.textContent = `CALL ON LINE ${currentChannel} NOW`;
+  }
+  
+  // Hide busy notice when user switches line
+  const busyBox = document.getElementById('lineBusyNotice');
+  if (busyBox) busyBox.style.display = 'none';
+
   reconnectPeer();
 }
 
@@ -766,87 +811,79 @@ function applyCustomChannel() {
   setChannel(val);
 }
 
-function setUserRole(role) {
-  currentUserRole = role;
-  localStorage.setItem('cs_user_role', currentUserRole);
-  updateRoleAndUI();
-  reconnectPeer();
-}
-
-function updateRoleAndUI() {
-  const isReceiver = (currentUserRole === 'RECEIVER');
-
-  const btnCaller = document.getElementById('btnRoleCaller');
-  const btnVictim = document.getElementById('btnRoleVictim');
-  btnCaller.className = `device-btn ${!isReceiver ? 'active caller' : ''}`;
-  btnVictim.className = `device-btn ${isReceiver ? 'active victim' : ''}`;
-
-  const roleBadge = document.getElementById('roleBadge');
-  if (isReceiver) {
-    roleBadge.textContent = '🛡️ Receiver (Victim)';
-    roleBadge.className = 'role-badge-pill role-victim-badge';
-  } else {
-    roleBadge.textContent = '📞 Caller';
-    roleBadge.className = 'role-badge-pill role-caller-badge';
-  }
-
-  const inCallPill = document.getElementById('inCallRolePill');
-  if (inCallPill) {
-    if (isReceiver) {
-      inCallPill.textContent = '🛡️ Protected Victim Mode (Alerts & Vibration ON)';
-      inCallPill.className = 'role-badge-pill role-victim-badge';
-    } else {
-      inCallPill.textContent = '📞 Caller Mode (Silent Stealth)';
-      inCallPill.className = 'role-badge-pill role-caller-badge';
+function autoSelectFreeLine() {
+  // Find first non-busy line
+  const lines = ['101', '102', '103', '104'];
+  for (const l of lines) {
+    if (!knownLineBusy[l]) {
+      setChannel(l);
+      setTimeout(() => { triggerMainCall(); }, 400);
+      return;
     }
   }
+  // If all 4 are busy, pick an express channel
+  setChannel('105');
+  setTimeout(() => { triggerMainCall(); }, 400);
+}
 
-  const targetLabel = isReceiver ? 'CALLER' : 'RECEIVER';
-  document.getElementById('mainCallBtnText').textContent = `CALL ${targetLabel} ON LINE ${currentChannel}`;
+function updateLineStatusIndicators() {
+  ['101', '102', '103', '104'].forEach(l => {
+    const dot = document.getElementById('dot' + l);
+    const btn = document.getElementById('chBtn' + l);
+    const isBusy = !!knownLineBusy[l];
+    if (dot) {
+      dot.className = `line-status-dot ${isBusy ? 'dot-busy' : 'dot-idle'}`;
+    }
+    if (btn) {
+      btn.classList.toggle('busy', isBusy);
+    }
+  });
 
-  const exp = document.getElementById('roleExplainer');
-  if (isReceiver) {
-    exp.innerHTML = `💡 This phone is the <b>Receiver (Victim)</b> on Line ${currentChannel}. Ready to receive calls. When scam words are spoken, <b>this phone will vibrate and alarm</b>!`;
-  } else {
-    exp.innerHTML = `💡 This phone is the <b>Caller</b>. Tap above to call Line ${currentChannel}. Your phone stays silent in stealth mode.`;
+  const busyNotice = document.getElementById('lineBusyNotice');
+  if (busyNotice) {
+    if (knownLineBusy[currentChannel]) {
+      busyNotice.style.display = 'block';
+      document.getElementById('busyNoticeTitle').textContent = `Line ${currentChannel} is Currently In Call!`;
+    } else {
+      busyNotice.style.display = 'none';
+    }
   }
 }
 
-function getMyPeerId() {
-  const suffix = (currentUserRole === 'RECEIVER') ? 'receiver' : 'caller';
-  return `cs_line_${currentChannel}_${suffix}`;
+function getPrimaryPeerId() {
+  return `cs_line_${currentChannel}_primary`;
 }
 
-function getTargetPeerId() {
-  const suffix = (currentUserRole === 'RECEIVER') ? 'caller' : 'receiver';
-  return `cs_line_${currentChannel}_${suffix}`;
+function getSecondaryPeerId() {
+  return `cs_line_${currentChannel}_sub`;
 }
 
-// ── 2. Reliable Cloud PeerJS Connection with Port 443 TCP Fallback & Keep-Alive ──
+// ── 2. Reliable Cloud PeerJS Connection with Auto-Registration & Busy Handling ──
 let isLineBusy = false;
 let isHuntingActive = false;
 
 function reconnectPeer() {
-  const id = getMyPeerId();
   if (myPeer && !myPeer.destroyed) {
-    if (myPeer.id === id) return;
     myPeer.destroy();
   }
 
   document.getElementById('statusBadge').textContent = '● Connecting...';
 
-  // Multi-Region STUN/TURN with Port 443 HTTPS-Fallback (Bypasses College Firewalls & Classroom NATs)
-  myPeer = new Peer(id, {
+  // Strategy: Try primary peer ID first. If already taken, automatically register as sub peer!
+  const primaryId = getPrimaryPeerId();
+  initPeerWithId(primaryId);
+}
+
+function initPeerWithId(peerId) {
+  myPeer = new Peer(peerId, {
     debug: 1,
     config: {
       iceServers: [
-        // Standard Google STUN
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
-        // Port 443 / Cloudflare & Mozilla STUN (Passes through campus HTTP/HTTPS firewall proxies)
         { urls: 'stun:stun.cloudflare.com:3478' },
         { urls: 'stun:stun.services.mozilla.com:3478' },
         { urls: 'stun:stun.relay.metered.ca:80' },
@@ -857,29 +894,29 @@ function reconnectPeer() {
   });
 
   myPeer.on('open', (assignedId) => {
-    const roleName = (currentUserRole === 'RECEIVER') ? 'Receiver' : 'Caller';
-    document.getElementById('statusBadge').textContent = `● Line ${currentChannel} · ${roleName} (ONLINE)`;
-    document.getElementById('statusBadge').style.borderColor = (currentUserRole === 'RECEIVER') ? 'var(--cs-green)' : 'var(--cs-orange)';
-    document.getElementById('statusBadge').style.color = (currentUserRole === 'RECEIVER') ? 'var(--cs-green)' : 'var(--cs-orange)';
+    document.getElementById('statusBadge').textContent = `● Line ${currentChannel} (ONLINE)`;
+    document.getElementById('statusBadge').style.borderColor = 'var(--cs-green)';
+    document.getElementById('statusBadge').style.color = 'var(--cs-green)';
+    knownLineBusy[currentChannel] = false;
+    updateLineStatusIndicators();
   });
 
-  // Reconnect automatically if connection to signaling server drops on 4G/5G or college Wi-Fi
   myPeer.on('disconnected', () => {
-    console.log('Peer disconnected from cloud server, auto-reconnecting...');
     document.getElementById('statusBadge').textContent = '● Reconnecting...';
     document.getElementById('statusBadge').style.color = 'var(--cs-yellow)';
     try { myPeer.reconnect(); } catch(e){}
   });
 
-  // Handle incoming call with Automatic Busy Line transfer response
+  // Handle incoming call with busy detection & multi-user routing
   myPeer.on('call', (call) => {
     if (currentCall) {
-      // Line is currently BUSY with another conversation
-      console.log('Line ' + currentChannel + ' is busy. Rejecting call with BUSY signal...');
+      console.log('Line ' + currentChannel + ' is already active with another conversation.');
+      knownLineBusy[currentChannel] = true;
+      updateLineStatusIndicators();
       try {
         const busyConn = myPeer.connect(call.peer);
         busyConn.on('open', () => {
-          busyConn.send({ type: 'LINE_BUSY', currentLine: currentChannel });
+          busyConn.send({ type: 'LINE_BUSY', line: currentChannel });
           setTimeout(() => { try { busyConn.close(); } catch(e){} }, 1000);
         });
       } catch(e){}
@@ -890,20 +927,25 @@ function reconnectPeer() {
     incomingCallObj = call;
     document.getElementById('incomingCallerId').textContent = `Line ${currentChannel} Incoming Call`;
     document.getElementById('incomingModal').classList.add('active');
-    
-    // Play pleasant discrete chime on incoming call
     triggerAlarmHaptic(300);
     playDiscreteChime(580);
   });
 
-  // Handle incoming data connection
   myPeer.on('connection', (conn) => {
     setupDataConnection(conn);
   });
 
   myPeer.on('error', (err) => {
     console.warn('Peer error:', err.type);
-    if (err.type === 'peer-unavailable') {
+    if (err.type === 'unavailable-id') {
+      // Primary ID is already taken by the other phone on this line!
+      // This means the other phone is already waiting on Line currentChannel.
+      // We seamlessly connect as the companion peer.
+      if (peerId === getPrimaryPeerId()) {
+        console.log(`Primary Line ${currentChannel} is waiting. Connecting companion ID...`);
+        initPeerWithId(getSecondaryPeerId());
+      }
+    } else if (err.type === 'peer-unavailable') {
       handlePeerUnavailable();
     }
   });
@@ -911,19 +953,27 @@ function reconnectPeer() {
 
 // ── Smart Busy-Line Hunting & Auto-Transfer ────────────────────────────────
 function handlePeerUnavailable() {
+  knownLineBusy[currentChannel] = true;
+  updateLineStatusIndicators();
+
+  const busyNotice = document.getElementById('lineBusyNotice');
+  if (busyNotice) {
+    busyNotice.style.display = 'block';
+    document.getElementById('busyNoticeTitle').textContent = `Line ${currentChannel} is Busy / Waiting for Companion`;
+    document.getElementById('busyNoticeDesc').textContent = 
+      `No active receiver detected on Line ${currentChannel} or the line is occupied. You can wait or tap auto-switch below.`;
+  }
+
   const currentNum = parseInt(currentChannel, 10);
   if (!isNaN(currentNum) && currentNum >= 101 && currentNum < 105 && isHuntingActive) {
     const nextLine = String(currentNum + 1);
-    console.log(`Line ${currentChannel} busy or unavailable. Auto-transferring to Line ${nextLine}...`);
-    showHuntingToast(`Line ${currentChannel} is busy. Automatically transferring to Line ${nextLine}...`);
+    showHuntingToast(`Line ${currentChannel} busy. Auto-hunting Line ${nextLine}...`);
     setChannel(nextLine);
     setTimeout(() => {
       triggerMainCall();
-    }, 600);
+    }, 800);
   } else {
     isHuntingActive = false;
-    const targetName = (currentUserRole === 'RECEIVER') ? 'Caller' : 'Receiver';
-    alert(`Line ${currentChannel} (${targetName}) is not active yet.\n\nMake sure Phone 2 has CallShield open on Line ${currentChannel} and selected "${targetName}".`);
     endCall();
   }
 }
@@ -931,7 +981,7 @@ function handlePeerUnavailable() {
 function showHuntingToast(msg) {
   const badge = document.getElementById('statusBadge');
   if (badge) {
-    badge.textContent = `🔄 Auto-Transferring...`;
+    badge.textContent = `🔄 Auto-Hunting...`;
     badge.style.color = 'var(--cs-cyan)';
   }
   const statusEl = document.getElementById('callConnectionStatus');
@@ -940,7 +990,7 @@ function showHuntingToast(msg) {
   }
 }
 
-// 🔄 Active Heartbeat Ping every 10s so mobile data (Jio, Airtel 4G/5G) never drops idle WebSocket
+// 🔄 Active Heartbeat Ping every 10s
 setInterval(() => {
   if (myPeer && !myPeer.destroyed && myPeer.socket) {
     try {
@@ -954,10 +1004,12 @@ setInterval(() => {
 function setupDataConnection(conn) {
   dataConn = conn;
   dataConn.on('open', () => {
-    console.log('Data connection is now active with peer');
+    console.log('Data connection is active with peer');
   });
   dataConn.on('data', (data) => {
     if (data.type === 'LINE_BUSY') {
+      knownLineBusy[data.line || currentChannel] = true;
+      updateLineStatusIndicators();
       handlePeerUnavailable();
     } else if (data.type === 'FRAUD_ALERT') {
       receiveRemoteFraudAlert(data);
@@ -971,7 +1023,8 @@ function setupDataConnection(conn) {
 function triggerMainCall() {
   isActualCaller = true;
   isHuntingActive = true;
-  const target = getTargetPeerId();
+  // If my current ID is secondary, call primary. If my ID is primary, call secondary!
+  const target = (myPeer && myPeer.id === getSecondaryPeerId()) ? getPrimaryPeerId() : getSecondaryPeerId();
   executeStartCall(target);
 }
 
@@ -979,10 +1032,9 @@ window.directCallNumber = function(targetNumber) {
   let clean = String(targetNumber).replace(/[^a-zA-Z0-9]/g, '').trim();
   if (!clean) clean = '101';
   setChannel(clean);
-  setUserRole('CALLER');
   isActualCaller = true;
   isHuntingActive = true;
-  const target = getTargetPeerId();
+  const target = (myPeer && myPeer.id === getSecondaryPeerId()) ? getPrimaryPeerId() : getSecondaryPeerId();
   executeStartCall(target);
 };
 
