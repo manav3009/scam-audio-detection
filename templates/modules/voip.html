@@ -1110,6 +1110,16 @@ function setupDataConnection(conn) {
     } else if (data.type === 'CALL_ENDED') {
       // The other party hung up: immediately end call locally
       endCall();
+    } else if (data.type === 'ROLE_SYNC') {
+      if (data.yourRole === 'VICTIM' && autoDetectedRole !== 'SCAMMER') {
+        autoDetectedRole = 'VICTIM';
+        updateAutoRoleDisplay();
+        triggerVictimAlert(data.score, data.keywords, `🚨 FRAUD ALERT: Suspect caller is asking for sensitive OTP / Banking credentials!`);
+      } else if (data.yourRole === 'SCAMMER') {
+        autoDetectedRole = 'SCAMMER';
+        updateAutoRoleDisplay();
+        showStealthNotice(data.score, data.keywords);
+      }
     } else if (data.type === 'FRAUD_ALERT') {
       receiveRemoteFraudAlert(data);
     } else if (data.type === 'TRANSCRIPT') {
@@ -1688,34 +1698,50 @@ function processSpokenText(rawText, isFinal) {
     }
   }
 
-  // ── GUARANTEED DUAL-LAYER SCAM INTERCEPTION (WORKS ON 4G, 5G, WI-FI & STANDALONE) ──
+  // ── GUARANTEED DUAL-LAYER SCAM INTERCEPTION (MUTUALLY EXCLUSIVE ROLES) ──
   if (!isOfficialContext && (finalReportedScore >= 35 || matchedList.length > 0)) {
-    const isLiveCompanionConnected = Boolean(currentCall && dataConn && dataConn.open);
+    const isCallActive = Boolean(currentCall || (document.getElementById('callScreen') && document.getElementById('callScreen').style.display === 'block'));
 
-    if (isLiveCompanionConnected) {
-      // 1. Live 2-device call active:
-      // Local mic captured scam words: This device is the suspect caller!
-      autoDetectedRole = 'SCAMMER';
-      updateAutoRoleDisplay();
+    if (isCallActive) {
+      if (autoDetectedRole === 'VICTIM') {
+        // This phone is ALREADY confirmed as VICTIM (it was dialed or received remote alert).
+        // Any speech captured on mic here is victim speaking or acoustic feedback.
+        // It stays VICTIM!
+        triggerVictimAlert(finalReportedScore, matchedList, "Live Voice Detected: Caller requesting sensitive credentials (" + matchedList.join(', ') + ")!");
+      } else {
+        // The microphone on this device spoke scam words!
+        // THIS DEVICE IS 100% THE SCAMMER!
+        autoDetectedRole = 'SCAMMER';
+        updateAutoRoleDisplay();
 
-      // Silently broadcast FRAUD_ALERT to companion device so only the VICTIM receives the alarm!
-      try {
-        dataConn.send({
-          type: 'FRAUD_ALERT',
-          score: finalReportedScore,
-          keywords: matchedList,
-          text: rawText
-        });
-      } catch(e){}
+        // Broadcast to companion device that this device is SCAMMER and companion is VICTIM!
+        if (dataConn && dataConn.open) {
+          try {
+            dataConn.send({
+              type: 'ROLE_SYNC',
+              myRole: 'SCAMMER',
+              yourRole: 'VICTIM',
+              score: finalReportedScore,
+              keywords: matchedList,
+              text: rawText
+            });
+            dataConn.send({
+              type: 'FRAUD_ALERT',
+              score: finalReportedScore,
+              keywords: matchedList,
+              text: rawText
+            });
+          } catch(e){}
+        }
 
-      // On suspect device: Show Intercept Flag without screaming sound
-      showStealthNotice(finalReportedScore, matchedList);
+        // Scammer device is 100% silent in stealth mode!
+        showStealthNotice(finalReportedScore, matchedList);
+      }
     } else {
-      // 2. Standalone testing, demo mode, or Protected Victim:
-      // ALWAYS display full interception alert with banner, chime, and vibration!
+      // Standalone lobby test mode (no active call in progress):
       autoDetectedRole = 'VICTIM';
       updateAutoRoleDisplay();
-      triggerVictimAlert(finalReportedScore, matchedList, "Live Voice Detected: Requesting sensitive credentials (" + matchedList.join(', ') + ")!");
+      triggerVictimAlert(finalReportedScore, matchedList, "Test Voice Detected: Requesting sensitive credentials (" + matchedList.join(', ') + ")!");
     }
   } else if (isOfficialContext && matchedList.length > 0) {
     appendTimeline(finalReportedScore, `🛡️ [Official Context]: Verified discussion of (${matchedList.join(', ')})`, matchedList);
@@ -1725,7 +1751,7 @@ function processSpokenText(rawText, isFinal) {
 // ── Autonomous Remote Speech Analysis Engine ──
 // Triggered on receiving remote audio transcript over WebRTC DataChannel (4G / 5G / Wi-Fi)
 function processRemoteSpokenText(remoteText) {
-  if (!remoteText) return;
+  if (!remoteText || autoDetectedRole === 'SCAMMER') return;
   const normalized = normalizeSpokenText(remoteText);
   let totalScore = 0;
   let matchedList = [];
@@ -1746,8 +1772,7 @@ function processRemoteSpokenText(remoteText) {
 
   const finalScore = Math.min(Math.round(totalScore), 100);
   if (finalScore >= 35 || matchedList.length > 0) {
-    // 100% Guaranteed: Remote caller is speaking scam patterns!
-    // THIS device is the Protected Victim!
+    // Remote caller is speaking scam patterns: THIS device is the Protected Victim!
     autoDetectedRole = 'VICTIM';
     updateAutoRoleDisplay();
     triggerVictimAlert(finalScore, matchedList, `🚨 FRAUD ALERT: Caller is asking for sensitive credentials (${matchedList.join(', ')})! NEVER SHARE OTP!`);
@@ -1755,18 +1780,23 @@ function processRemoteSpokenText(remoteText) {
 }
 
 function showStealthNotice(score, keywords) {
+  autoDetectedRole = 'SCAMMER';
+  updateAutoRoleDisplay();
+
   const sb = document.getElementById('stealthBanner');
   if (sb) {
     sb.classList.add('active');
-    sb.innerHTML = `<b>⚠️ Scam Threat Flagged (${score}%):</b> Malicious patterns detected (<b>${keywords.join(', ')}</b>). Real-time warning sent to companion device. Phone stays quiet to protect user.`;
+    sb.innerHTML = `<b>🤫 Stealth Mode Active:</b> Scam patterns detected (<b>${keywords.join(', ')}</b>). Real-time warning sent to Victim's phone only. This suspect device remains silent.`;
   }
-  appendTimeline(score, `[Scam Speech Flagged]: ${keywords.join(', ')}`, keywords);
+  const fb = document.getElementById('fraudBanner');
+  if (fb) fb.classList.remove('active'); // Scammer NEVER sees screaming red alarm
+  appendTimeline(score, `[Scam Speech Flagged - Stealth Active]: ${keywords.join(', ')}`, keywords);
 }
 
 // Triggered on the Victim's device (or during test mode)
 function triggerVictimAlert(score, keywords, msg) {
-  // If in live 2-device call and this device was positively identified as SCAMMER, keep silent
-  if (autoDetectedRole === 'SCAMMER' && currentCall && dataConn && dataConn.open) {
+  // If this device was identified as SCAMMER, ABSOLUTELY NEVER ALERT OR BECOME VICTIM!
+  if (autoDetectedRole === 'SCAMMER') {
     showStealthNotice(score, keywords);
     return;
   }
@@ -1802,7 +1832,10 @@ function triggerVictimAlert(score, keywords, msg) {
 }
 
 function receiveRemoteFraudAlert(data) {
-  // When remote scammer device senses fraud, alert this VICTIM phone immediately!
+  // If this device is the scammer, ignore incoming alert
+  if (autoDetectedRole === 'SCAMMER') return;
+
+  // Remote scammer device senses fraud: alert this VICTIM phone immediately!
   autoDetectedRole = 'VICTIM';
   updateAutoRoleDisplay();
   triggerVictimAlert(data.score, data.keywords, `🚨 FRAUD ALERT: Caller is asking for sensitive OTP / Banking credentials!`);
