@@ -1011,6 +1011,16 @@ function setupDataConnection(conn) {
       knownLineBusy[data.line || currentChannel] = true;
       updateLineStatusIndicators();
       handlePeerUnavailable();
+    } else if (data.type === 'CALL_DECLINED') {
+      // Recipient pressed decline button: immediately end call on caller side
+      showHuntingToast("Call was declined by recipient.");
+      setTimeout(() => {
+        endCall();
+        alert("📵 Call was declined by recipient.");
+      }, 300);
+    } else if (data.type === 'CALL_ENDED') {
+      // The other party hung up: immediately end call locally
+      endCall();
     } else if (data.type === 'FRAUD_ALERT') {
       receiveRemoteFraudAlert(data);
     } else if (data.type === 'TRANSCRIPT') {
@@ -1147,7 +1157,21 @@ async function acceptCall() {
 function rejectCall() {
   document.getElementById('incomingModal').classList.remove('active');
   if (incomingCallObj) {
-    incomingCallObj.close();
+    const callerPeerId = incomingCallObj.peer;
+    // Notify caller that call was declined so their screen cuts automatically
+    try {
+      if (dataConn && dataConn.open) {
+        dataConn.send({ type: 'CALL_DECLINED' });
+      } else if (myPeer) {
+        const declineConn = myPeer.connect(callerPeerId);
+        declineConn.on('open', () => {
+          try { declineConn.send({ type: 'CALL_DECLINED' }); } catch(e){}
+          setTimeout(() => { try { declineConn.close(); } catch(e){} }, 800);
+        });
+      }
+    } catch(e){}
+
+    try { incomingCallObj.close(); } catch(e){}
     incomingCallObj = null;
   }
 }
@@ -1176,6 +1200,13 @@ function setupActiveCall(call, peerName) {
 
 // ── 6. End Call ────────────────────────────────────────────────────────────
 function endCall() {
+  // Notify other party to automatically cut their call screen too
+  try {
+    if (dataConn && dataConn.open) {
+      dataConn.send({ type: 'CALL_ENDED' });
+    }
+  } catch(e){}
+
   if (currentCall) { try { currentCall.close(); } catch(e){} currentCall = null; }
   if (dataConn) { try { dataConn.close(); } catch(e){} dataConn = null; }
   if (localMediaStream) {
@@ -1190,6 +1221,7 @@ function endCall() {
   document.getElementById('fraudBanner').classList.remove('active');
   document.getElementById('stealthBanner').classList.remove('active');
   peakRisk = 0;
+  hasSoundedAlertInCall = false;
   updateRiskDisplay(0, 'LOW RISK', '—');
 }
 
@@ -1320,55 +1352,53 @@ function processSpokenText(rawText, isFinal) {
         score: finalScore,
         keywords: matchedList,
         text: rawText,
-        speaker: isActualCaller ? 'Caller (Potential Scammer)' : 'Remote Caller'
+        speaker: 'Active Line Speaker'
       });
     }
 
-    // LAYER 2: Local Device Alert Routing
-    if (isActualCaller) {
-      // Caller device: Silent stealth (scammer doesn't know they are intercepted)
-      showStealthNotice(finalScore, matchedList);
-    } else {
-      // Receiver (Victim) device: Trigger alert locally immediately!
-      triggerVictimAlert(finalScore, matchedList, "Live Voice Detected: Caller requesting sensitive credentials!");
-    }
+    // LAYER 2: Guaranteed Immediate Local Scam Alert & Hardware Haptic Vibration!
+    triggerVictimAlert(finalScore, matchedList, "Live Voice Detected: Suspicious keywords (" + matchedList.join(', ') + ") detected!");
   }
 }
 
 function showStealthNotice(score, keywords) {
   const sb = document.getElementById('stealthBanner');
-  sb.classList.add('active');
-  sb.innerHTML = `<b>🤫 Stealth Mode Active:</b> Fraud patterns detected (<b>${keywords.join(', ')}</b>). Alert sent to Victim's phone only. This phone remains silent.`;
-  appendTimeline(score, `[Caller Speech]: Detected ${keywords.join(', ')}`, keywords);
+  if (sb) {
+    sb.classList.add('active');
+    sb.innerHTML = `<b>🛡️ Interception Active:</b> Fraud patterns detected (<b>${keywords.join(', ')}</b>).`;
+  }
+  appendTimeline(score, `Detected ${keywords.join(', ')}`, keywords);
 }
 
-// Triggered on Victim's device either via remote DataChannel or direct speech detection
+// Triggered whenever fraud keywords/patterns are detected locally or remotely
 function triggerVictimAlert(score, keywords, msg) {
-  if (isActualCaller) return; // Never alert caller device
-
   const banner = document.getElementById('fraudBanner');
-  banner.classList.add('active');
-  document.getElementById('bannerScoreBadge').textContent = `${score}%`;
-  document.getElementById('bannerMessage').textContent = msg ||
-    `🚨 FRAUD ALERT: Caller is attempting to steal sensitive credentials! NEVER SHARE OTP, PIN, OR CVV!`;
+  if (banner) {
+    banner.classList.add('active');
+    document.getElementById('bannerScoreBadge').textContent = `${score}%`;
+    document.getElementById('bannerMessage').textContent = msg ||
+      `🚨 FRAUD ALERT: Sensitive credentials requested! NEVER SHARE OTP, PIN, OR CVV!`;
 
-  const kwWrap = document.getElementById('bannerKeywords');
-  kwWrap.innerHTML = (keywords || []).map(k => `<span class="kw-tag">${k}</span>`).join('');
+    const kwWrap = document.getElementById('bannerKeywords');
+    if (kwWrap) {
+      kwWrap.innerHTML = (keywords || []).map(k => `<span class="kw-tag">${k}</span>`).join('');
+    }
+  }
 
   if (score > peakRisk) {
     peakRisk = score;
     updateRiskDisplay(peakRisk, 'HIGH RISK', 'Caller Requesting Sensitive Information');
   }
 
-  // PLEASANT DISCRETE CHIME & HARDWARE VIBRATION
+  // PLEASANT 1-SHOT CHIME & HARDWARE VIBRATION (No continuous irritation)
   playGentleWarningChime();
-  triggerAlarmHaptic(600);
+  triggerAlarmHaptic(800);
   appendTimeline(score, msg, keywords);
 }
 
 function receiveRemoteFraudAlert(data) {
-  // When remote caller sends fraud alert, victim always sounds alarm
-  triggerVictimAlert(data.score, data.keywords, `🚨 FRAUD ALERT: Caller (${data.speaker}) is asking for sensitive OTP / Banking details!`);
+  // When remote device senses fraud, alert this phone immediately!
+  triggerVictimAlert(data.score, data.keywords, `🚨 FRAUD ALERT: Suspicious request for sensitive credentials detected!`);
 }
 
 function updateRiskDisplay(score, level, category) {
@@ -1419,55 +1449,44 @@ function appendTimeline(score, text, kws) {
 
 // ── 9. Hardware Vibration & Gentle Sound Chime ─────────────────────────────
 function triggerAlarmHaptic(ms) {
-  if (isActualCaller) return; // Caller is silent
-
+  const duration = ms > 0 ? ms : 700;
+  // Android Native Bridge
   if (window.CallShieldBridge && window.CallShieldBridge.triggerVibrate) {
-    try { window.CallShieldBridge.triggerVibrate(ms); } catch(e){}
+    try { window.CallShieldBridge.triggerVibrate(duration); } catch(e){}
   }
   if (window.CallShieldBridge && window.CallShieldBridge.triggerAlert) {
-    try { window.CallShieldBridge.triggerAlert("SCAM ALERT", "Caller is asking for sensitive OTP or Banking credentials!", 95); } catch(e){}
+    try { window.CallShieldBridge.triggerAlert("SCAM ALERT", "Sensitive OTP or Banking credentials requested!", 95); } catch(e){}
   }
+  // Standard Web Vibration API
   try {
     if (navigator.vibrate) {
-      navigator.vibrate([250, 100, 250]);
+      navigator.vibrate([400, 150, 400]);
     }
   } catch(e){}
 }
 
-// 🎵 Pleasant, subtle 2-tone chime (Pure sine wave, soft volume, 10-second cooldown)
+// 🎵 Gentle, single-shot notification bell (Soft volume, non-irritating, never loops)
+let hasSoundedAlertInCall = false;
 function playGentleWarningChime() {
-  if (isActualCaller || !isSoundAlertEnabled) return;
-
-  const now = Date.now();
-  if (now - lastAlarmSoundTime < ALARM_COOLDOWN_MS) return;
-  lastAlarmSoundTime = now;
+  if (!isSoundAlertEnabled) return;
+  // Play once per fraud incident; never repeat irritatingly in 10s intervals
+  if (hasSoundedAlertInCall) return;
+  hasSoundedAlertInCall = true;
 
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    
-    // Tone 1: 520Hz gentle sine
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(520, ctx.currentTime);
-    gain1.gain.setValueAtTime(0.12, ctx.currentTime);
-    gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
-    osc1.start(ctx.currentTime);
-    osc1.stop(ctx.currentTime + 0.16);
+    if (ctx.state === 'suspended') { ctx.resume(); }
 
-    // Tone 2: 660Hz gentle sine
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(660, ctx.currentTime + 0.12);
-    gain2.gain.setValueAtTime(0.14, ctx.currentTime + 0.12);
-    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.36);
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-    osc2.start(ctx.currentTime + 0.12);
-    osc2.stop(ctx.currentTime + 0.36);
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(659.25, ctx.currentTime); // E5 pleasant chime
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.45);
   } catch(e){}
 }
 
@@ -1521,13 +1540,10 @@ function simulateScam(type) {
 
   let alertNote = '';
   if (isScam) {
-    if (isReceiver) {
-      alertNote = `<div style="color:var(--cs-red);font-size:11px;margin-top:4px">🚨 Discreet Chime & Vibration triggered on Receiver device!</div>`;
-      playGentleWarningChime();
-      triggerAlarmHaptic(400);
-    } else {
-      alertNote = `<div style="color:var(--cs-orange);font-size:11px;margin-top:4px">🤫 [Stealth Mode] Alert suppressed on Caller device. Switch to "Receiver" to test alert.</div>`;
-    }
+    alertNote = `<div style="color:var(--cs-red);font-size:11px;margin-top:4px">🚨 Discreet 1-Shot Chime & Vibration triggered on device!</div>`;
+    hasSoundedAlertInCall = false; // Allow demo sound
+    playGentleWarningChime();
+    triggerAlarmHaptic(600);
   }
 
   out.innerHTML = `
