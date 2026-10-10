@@ -46,9 +46,12 @@ def analyze_live():
     else:
         color, icon, bg_intensity = 'green', 'fa-shield-alt', 'bg-green-900/30'
     
+    is_scam_flag = bool(result['fraud_score'] >= 45 or risk_level in ['Critical', 'High', 'Medium-High'])
     return jsonify({
         'success': True,
         'fraud_score': result['fraud_score'],
+        'risk_score': result['fraud_score'],
+        'is_scam': is_scam_flag,
         'risk_level': result['risk_level'],
         'risk_level_display': f"{result['risk_level'].upper()} RISK",
         'warning_message': result['warning_message'],

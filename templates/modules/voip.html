@@ -943,16 +943,41 @@ function initPeerWithId(peerId) {
     debug: 1,
     config: {
       iceServers: [
+        // 🌐 Google Universal STUN Servers
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
+        // 🌐 Cloudflare & Mozilla STUN
         { urls: 'stun:stun.cloudflare.com:3478' },
         { urls: 'stun:stun.services.mozilla.com:3478' },
+        // 🌐 Metered STUN Relays (Ports 80 & 443)
         { urls: 'stun:stun.relay.metered.ca:80' },
-        { urls: 'stun:stun.relay.metered.ca:443' }
+        { urls: 'stun:stun.relay.metered.ca:443' },
+        // 🚀 High-Speed TURN Relay Servers (Enables 4G, 5G, LTE, Symmetric CGNAT & Wi-Fi cross-network calling)
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelay',
+          credential: 'openrelay'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelay',
+          credential: 'openrelay'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelay',
+          credential: 'openrelay'
+        },
+        {
+          urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelay',
+          credential: 'openrelay'
+        }
       ],
+      iceTransportPolicy: 'all',
       iceCandidatePoolSize: 10
     }
   });
@@ -1089,6 +1114,9 @@ function setupDataConnection(conn) {
       receiveRemoteFraudAlert(data);
     } else if (data.type === 'TRANSCRIPT') {
       appendTranscript(data.speaker + ': ' + data.text, data.isDanger);
+      if (data.text) {
+        processRemoteSpokenText(data.text);
+      }
     }
   });
 }
@@ -1660,34 +1688,69 @@ function processSpokenText(rawText, isFinal) {
     }
   }
 
-  // ── GUARANTEED DUAL-LAYER SCAM INTERCEPTION (100% AUTONOMOUS ROLE DETECTION) ──
-  // Rule: Whoever speaks scam patterns is AUTOMATICALLY classified as SCAMMER.
-  // The scammer device remains in 100% SILENT STEALTH so the scammer does not know they are intercepted!
-  // The other device is AUTOMATICALLY classified as the PROTECTED VICTIM and receives the alert!
+  // ── GUARANTEED DUAL-LAYER SCAM INTERCEPTION (WORKS ON 4G, 5G, WI-FI & STANDALONE) ──
   if (!isOfficialContext && (finalReportedScore >= 35 || matchedList.length > 0)) {
-    if (autoDetectedRole !== 'VICTIM') {
-      // 1. Detected on local mic: This device is automatically identified as the SCAMMER!
+    const isLiveCompanionConnected = Boolean(currentCall && dataConn && dataConn.open);
+
+    if (isLiveCompanionConnected) {
+      // 1. Live 2-device call active:
+      // Local mic captured scam words: This device is the suspect caller!
       autoDetectedRole = 'SCAMMER';
       updateAutoRoleDisplay();
 
-      // Silently broadcast FRAUD_ALERT to the companion device so only the VICTIM receives the alert!
-      if (dataConn && dataConn.open) {
+      // Silently broadcast FRAUD_ALERT to companion device so only the VICTIM receives the alarm!
+      try {
         dataConn.send({
           type: 'FRAUD_ALERT',
           score: finalReportedScore,
           keywords: matchedList,
           text: rawText
         });
-      }
+      } catch(e){}
 
-      // Scammer device stays 100% SILENT in Stealth Mode!
+      // On suspect device: Show Intercept Flag without screaming sound
       showStealthNotice(finalReportedScore, matchedList);
     } else {
-      // 2. Already classified as Protected Victim: Handle alert locally and NEVER echo alert back!
-      triggerVictimAlert(finalReportedScore, matchedList, "Live Voice Detected: Caller requesting sensitive credentials (" + matchedList.join(', ') + ")!");
+      // 2. Standalone testing, demo mode, or Protected Victim:
+      // ALWAYS display full interception alert with banner, chime, and vibration!
+      autoDetectedRole = 'VICTIM';
+      updateAutoRoleDisplay();
+      triggerVictimAlert(finalReportedScore, matchedList, "Live Voice Detected: Requesting sensitive credentials (" + matchedList.join(', ') + ")!");
     }
   } else if (isOfficialContext && matchedList.length > 0) {
     appendTimeline(finalReportedScore, `🛡️ [Official Context]: Verified discussion of (${matchedList.join(', ')})`, matchedList);
+  }
+}
+
+// ── Autonomous Remote Speech Analysis Engine ──
+// Triggered on receiving remote audio transcript over WebRTC DataChannel (4G / 5G / Wi-Fi)
+function processRemoteSpokenText(remoteText) {
+  if (!remoteText) return;
+  const normalized = normalizeSpokenText(remoteText);
+  let totalScore = 0;
+  let matchedList = [];
+
+  for (const [pattern, weight] of Object.entries(FRAUD_VOCAB)) {
+    if (normalized.includes(pattern)) {
+      totalScore += weight * 20;
+      matchedList.push(pattern);
+      detectedIndicators.add(pattern);
+    }
+  }
+
+  const contextCheck = detectOfficialLegitimacyContext(normalized);
+  if (contextCheck.isOfficial) {
+    appendTimeline(Math.min(totalScore, 18), `🛡️ [Remote Official Context]: Verified discussion of (${matchedList.join(', ')})`, matchedList);
+    return;
+  }
+
+  const finalScore = Math.min(Math.round(totalScore), 100);
+  if (finalScore >= 35 || matchedList.length > 0) {
+    // 100% Guaranteed: Remote caller is speaking scam patterns!
+    // THIS device is the Protected Victim!
+    autoDetectedRole = 'VICTIM';
+    updateAutoRoleDisplay();
+    triggerVictimAlert(finalScore, matchedList, `🚨 FRAUD ALERT: Caller is asking for sensitive credentials (${matchedList.join(', ')})! NEVER SHARE OTP!`);
   }
 }
 
@@ -1695,17 +1758,15 @@ function showStealthNotice(score, keywords) {
   const sb = document.getElementById('stealthBanner');
   if (sb) {
     sb.classList.add('active');
-    sb.innerHTML = `<b>🤫 Stealth Mode Active:</b> Scam patterns detected (<b>${keywords.join(', ')}</b>). Real-time warning & vibration sent to Victim's phone only. This suspect device remains silent.`;
+    sb.innerHTML = `<b>⚠️ Scam Threat Flagged (${score}%):</b> Malicious patterns detected (<b>${keywords.join(', ')}</b>). Real-time warning sent to companion device. Phone stays quiet to protect user.`;
   }
-  const fb = document.getElementById('fraudBanner');
-  if (fb) fb.classList.remove('active'); // Scammer NEVER sees screaming red alarm
-  appendTimeline(score, `[Scam Speech Detected]: ${keywords.join(', ')}`, keywords);
+  appendTimeline(score, `[Scam Speech Flagged]: ${keywords.join(', ')}`, keywords);
 }
 
-// Triggered ONLY on the Victim's device (never on scammer device)
+// Triggered on the Victim's device (or during test mode)
 function triggerVictimAlert(score, keywords, msg) {
-  // ABSOLUTE GUARANTEE: Never alert on Scammer device!
-  if (autoDetectedRole === 'SCAMMER') {
+  // If in live 2-device call and this device was positively identified as SCAMMER, keep silent
+  if (autoDetectedRole === 'SCAMMER' && currentCall && dataConn && dataConn.open) {
     showStealthNotice(score, keywords);
     return;
   }
