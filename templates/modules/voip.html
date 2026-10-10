@@ -1376,6 +1376,17 @@ function setupActiveCall(call, peerName) {
   document.getElementById('callPeerName').textContent = `Line ${currentChannel} · ${peerDisplay}`;
   document.getElementById('callConnectionStatus').textContent = '🛡️ Connecting...';
 
+  const rolePill = document.getElementById('inCallRolePill');
+  if (rolePill) {
+    if (isActualCaller) {
+      rolePill.textContent = '🕵️ Call Originator (Stealth Interceptor Active)';
+      rolePill.className = 'role-badge-pill role-caller-badge';
+    } else {
+      rolePill.textContent = '🛡️ Protected Line (Instant Scam Defense Active)';
+      rolePill.className = 'role-badge-pill role-victim-badge';
+    }
+  }
+
   call.on('stream', (remoteStream) => {
     document.getElementById('remoteAudio').srcObject = remoteStream;
     document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
@@ -1557,23 +1568,30 @@ function processSpokenText(rawText, isFinal) {
     }
   }
 
-  // ── GUARANTEED DUAL-LAYER SCAM INTERCEPTION ──────────────────────────────
-  // Only trigger scam siren and alerts if NOT an official educational/advisory discussion!
+  // ── GUARANTEED DUAL-LAYER SCAM INTERCEPTION (VICTIM-ONLY ALERT DISPATCH) ──
+  // Rule: Only the victim's device sounds the siren and vibrates.
+  // The caller / scammer device remains in SILENT STEALTH so the scammer does not know they are intercepted!
   if (!isOfficialContext && (finalReportedScore >= 35 || matchedList.length > 0)) {
     
-    // LAYER 1: Broadcast FRAUD_ALERT to peer device over DataChannel
+    // LAYER 1: If detected on the caller's phone, broadcast FRAUD_ALERT silently to the victim!
     if (dataConn && dataConn.open) {
       dataConn.send({
         type: 'FRAUD_ALERT',
         score: finalReportedScore,
         keywords: matchedList,
         text: rawText,
-        speaker: 'Active Line Speaker'
+        speaker: isActualCaller ? 'Caller' : 'Receiver'
       });
     }
 
-    // LAYER 2: Guaranteed Immediate Local Scam Alert & Hardware Haptic Vibration
-    triggerVictimAlert(finalReportedScore, matchedList, "Live Voice Detected: Suspicious keywords (" + matchedList.join(', ') + ") with coercive pressure!");
+    // LAYER 2: Local Device Alert Routing
+    if (isActualCaller) {
+      // Scammer / Caller side: Keep device completely SILENT in Stealth Mode!
+      showStealthNotice(finalReportedScore, matchedList);
+    } else {
+      // Victim device: Loud warning banner, pleasant single bell, and hardware vibration!
+      triggerVictimAlert(finalReportedScore, matchedList, "Live Voice Detected: Caller requesting sensitive credentials (" + matchedList.join(', ') + ")!");
+    }
   } else if (isOfficialContext && matchedList.length > 0) {
     appendTimeline(finalReportedScore, `🛡️ [Official Context]: Verified discussion of (${matchedList.join(', ')})`, matchedList);
   }
@@ -1583,19 +1601,23 @@ function showStealthNotice(score, keywords) {
   const sb = document.getElementById('stealthBanner');
   if (sb) {
     sb.classList.add('active');
-    sb.innerHTML = `<b>🛡️ Interception Active:</b> Fraud patterns detected (<b>${keywords.join(', ')}</b>).`;
+    sb.innerHTML = `<b>🤫 Stealth Mode Active:</b> Scam patterns detected (<b>${keywords.join(', ')}</b>). Alert sent to Victim's phone only. This phone remains silent.`;
   }
-  appendTimeline(score, `Detected ${keywords.join(', ')}`, keywords);
+  const fb = document.getElementById('fraudBanner');
+  if (fb) fb.classList.remove('active'); // Ensure caller never sees screaming red alarm
+  appendTimeline(score, `[Caller Speech]: Detected ${keywords.join(', ')}`, keywords);
 }
 
-// Triggered whenever fraud keywords/patterns are detected locally or remotely
+// Triggered ONLY on the Victim's device (never on scammer device)
 function triggerVictimAlert(score, keywords, msg) {
+  if (isActualCaller) return; // Guaranteed: Caller device is ALWAYS silent!
+
   const banner = document.getElementById('fraudBanner');
   if (banner) {
     banner.classList.add('active');
     document.getElementById('bannerScoreBadge').textContent = `${score}%`;
     document.getElementById('bannerMessage').textContent = msg ||
-      `🚨 FRAUD ALERT: Sensitive credentials requested! NEVER SHARE OTP, PIN, OR CVV!`;
+      `🚨 FRAUD ALERT: Caller is attempting to steal sensitive credentials! NEVER SHARE OTP, PIN, OR CVV!`;
 
     const kwWrap = document.getElementById('bannerKeywords');
     if (kwWrap) {
@@ -1603,20 +1625,23 @@ function triggerVictimAlert(score, keywords, msg) {
     }
   }
 
+  const sb = document.getElementById('stealthBanner');
+  if (sb) sb.classList.remove('active');
+
   if (score > peakRisk) {
     peakRisk = score;
     updateRiskDisplay(peakRisk, 'HIGH RISK', 'Caller Requesting Sensitive Information');
   }
 
-  // PLEASANT 1-SHOT CHIME & HARDWARE VIBRATION (No continuous irritation)
+  // PLEASANT 1-SHOT CHIME & HARDWARE VIBRATION ON VICTIM DEVICE
   playGentleWarningChime();
   triggerAlarmHaptic(800);
   appendTimeline(score, msg, keywords);
 }
 
 function receiveRemoteFraudAlert(data) {
-  // When remote device senses fraud, alert this phone immediately!
-  triggerVictimAlert(data.score, data.keywords, `🚨 FRAUD ALERT: Suspicious request for sensitive credentials detected!`);
+  // When remote caller device senses fraud, alert this VICTIM phone immediately!
+  triggerVictimAlert(data.score, data.keywords, `🚨 FRAUD ALERT: Caller is asking for sensitive OTP / Banking details!`);
 }
 
 function updateRiskDisplay(score, level, category) {
@@ -1667,6 +1692,8 @@ function appendTimeline(score, text, kws) {
 
 // ── 9. Hardware Vibration & Gentle Sound Chime ─────────────────────────────
 function triggerAlarmHaptic(ms) {
+  if (isActualCaller) return; // Guaranteed: Caller device NEVER vibrates
+
   const duration = ms > 0 ? ms : 700;
   // Android Native Bridge
   if (window.CallShieldBridge && window.CallShieldBridge.triggerVibrate) {
@@ -1686,7 +1713,7 @@ function triggerAlarmHaptic(ms) {
 // 🎵 Gentle, single-shot notification bell (Soft volume, non-irritating, never loops)
 let hasSoundedAlertInCall = false;
 function playGentleWarningChime() {
-  if (!isSoundAlertEnabled) return;
+  if (isActualCaller || !isSoundAlertEnabled) return; // Caller device is ALWAYS silent!
   // Play once per fraud incident; never repeat irritatingly in 10s intervals
   if (hasSoundedAlertInCall) return;
   hasSoundedAlertInCall = true;
