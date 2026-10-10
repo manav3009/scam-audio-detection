@@ -1046,6 +1046,13 @@ function triggerMainCall() {
   executeStartCall(target);
 }
 
+window.setPreselectedChannel = function(targetNumber) {
+  let clean = String(targetNumber).replace(/[^a-zA-Z0-9]/g, '').trim();
+  if (!clean) clean = '101';
+  setChannel(clean);
+  // Preselected on line without immediately autodialing
+};
+
 window.directCallNumber = function(targetNumber) {
   let clean = String(targetNumber).replace(/[^a-zA-Z0-9]/g, '').trim();
   if (!clean) clean = '101';
