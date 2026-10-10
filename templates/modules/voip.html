@@ -483,12 +483,14 @@ body {
       </div>
 
       <!-- Quick City Hubs -->
-      <div style="display:flex;gap:6px;margin-top:10px;overflow-x:auto;padding-bottom:4px;">
-        <span style="font-size:11px;color:#64748b;align-self:center;white-space:nowrap;">Hubs:</span>
-        <button class="btn-preset" style="padding:4px 8px;font-size:11px" onclick="setChannel('DELHI-1')">🏛️ Delhi</button>
-        <button class="btn-preset" style="padding:4px 8px;font-size:11px" onclick="setChannel('MUMBAI-1')">🌊 Mumbai</button>
-        <button class="btn-preset" style="padding:4px 8px;font-size:11px" onclick="setChannel('BLR-1')">🚀 Bengaluru</button>
-        <button class="btn-preset" style="padding:4px 8px;font-size:11px" onclick="setChannel('PUNE-1')">🎓 Pune</button>
+      <div style="margin-top:12px;">
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;font-weight:700;">🏙️ Inter-City Calling Hubs (Cross-Network 4G/5G/Wi-Fi):</div>
+        <div class="channel-selector" style="margin-bottom:0">
+          <button class="channel-pill" id="chBtnDELHI1" onclick="setChannel('DELHI1')">🏛️ Delhi</button>
+          <button class="channel-pill" id="chBtnMUMBAI1" onclick="setChannel('MUMBAI1')">🌊 Mumbai</button>
+          <button class="channel-pill" id="chBtnBLR1" onclick="setChannel('BLR1')">🚀 Bengaluru</button>
+          <button class="channel-pill" id="chBtnPUNE1" onclick="setChannel('PUNE1')">🎓 Pune</button>
+        </div>
       </div>
     </div>
 
@@ -614,17 +616,36 @@ body {
     <!-- Live Intercepted Speech Transcript -->
     <div class="card">
       <div class="card-title">
-        <span>🎙️ Live Intercepted Speech</span>
-        <span id="sttStatusDot" style="color:var(--cs-green);font-size:10px;cursor:pointer;" onclick="restartSTT()" title="Tap to reconnect speech interceptor">● Interceptor Active</span>
+        <span>🎙️ Live Intercepted Speech (Both Users)</span>
+        <span id="sttStatusDot" style="color:var(--cs-green);font-size:10px;cursor:pointer;" onclick="restartSTT()" title="Tap to reconnect speech interceptor">● Listening (Both Sides)</span>
       </div>
-      <div id="transcriptPanel" class="scroll-panel">
+      
+      <!-- Live Mic Indicators for User A and User B -->
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#030712;padding:6px 10px;border-radius:8px;margin-bottom:8px;font-size:11px;border:1px solid #1e293b;">
+        <span><b style="color:#38bdf8">User A (Caller):</b> <span id="userAMicIndicator" style="color:#94a3b8">● Standby</span></span>
+        <span><b style="color:#00ff87">User B (Receiver):</b> <span id="userBMicIndicator" style="color:#94a3b8">● Standby</span></span>
+      </div>
+
+      <div id="transcriptPanel" class="scroll-panel" style="max-height:160px;">
         <div class="transcript-placeholder" style="color:#64748b;text-align:center;padding:16px 0;">
-          Speak to analyze conversation in real time...
+          Speak into microphone or tap quick phrases below to intercept speech in real time...
         </div>
       </div>
-      <!-- Quick Test & Instant Speech Injector -->
+
+      <!-- Quick 1-Tap Intercept Phrases (Works on Any Phone / Network) -->
+      <div style="margin-top:8px;">
+        <div style="font-size:10px;color:#94a3b8;margin-bottom:4px;font-weight:700;">⚡ 1-Tap Quick Intercept Phrases:</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="btn-preset" style="padding:4px 8px;font-size:10px;background:rgba(239,68,68,0.2);color:#fca5a5;border-color:#ef4444;" onclick="injectQuickSpeech('Please share your 6 digit bank OTP immediately or account will be blocked!')">🚨 Ask OTP</button>
+          <button class="btn-preset" style="padding:4px 8px;font-size:10px;background:rgba(239,68,68,0.2);color:#fca5a5;border-color:#ef4444;" onclick="injectQuickSpeech('Your KYC is expired. Give your ATM debit card PIN and CVV right now!')">🚨 KYC / PIN</button>
+          <button class="btn-preset" style="padding:4px 8px;font-size:10px;background:rgba(16,185,129,0.2);color:#86efac;border-color:#10b981;" onclick="injectQuickSpeech('Hello, who is calling? Why are you asking for my secret OTP?')">🛡️ Who is this?</button>
+          <button class="btn-preset" style="padding:4px 8px;font-size:10px;background:rgba(16,185,129,0.2);color:#86efac;border-color:#10b981;" onclick="injectQuickSpeech('I will never share my secret password or OTP with anyone.')">🛡️ Refuse OTP</button>
+        </div>
+      </div>
+
+      <!-- Custom Speech Injector Input -->
       <div style="display:flex;gap:6px;margin-top:8px;">
-        <input id="quickSpeechInput" type="text" placeholder="Type or test: 'Share OTP', 'Who is this?'..." style="flex:1;background:rgba(15,23,42,0.8);border:1px solid #334155;border-radius:8px;padding:6px 10px;font-size:11px;color:#f8fafc;" onkeydown="if(event.key==='Enter') sendManualSpeechTest()" />
+        <input id="quickSpeechInput" type="text" placeholder="Type words (e.g. Share your OTP, Hello)..." style="flex:1;background:rgba(15,23,42,0.8);border:1px solid #334155;border-radius:8px;padding:6px 10px;font-size:11px;color:#f8fafc;" onkeydown="if(event.key==='Enter') sendManualSpeechTest()" />
         <button onclick="sendManualSpeechTest()" style="background:#0284c7;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">Send</button>
       </div>
     </div>
@@ -853,18 +874,33 @@ if (!myDeviceId) {
   localStorage.setItem('cs_device_id', myDeviceId);
 }
 
+function getChannelDisplayName(ch) {
+  const map = {
+    'DELHI1': '🏛️ Delhi Hub',
+    'MUMBAI1': '🌊 Mumbai Hub',
+    'BLR1': '🚀 Bengaluru Hub',
+    'PUNE1': '🎓 Pune Hub'
+  };
+  return map[ch] || `Line ${ch}`;
+}
+
 function setChannel(ch) {
-  currentChannel = String(ch).replace(/[^a-zA-Z0-9]/g, '');
-  if (!currentChannel) currentChannel = '101';
+  let clean = String(ch).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!clean) clean = '101';
+  currentChannel = clean;
   localStorage.setItem('cs_channel', currentChannel);
 
   document.querySelectorAll('.channel-pill').forEach(btn => {
     btn.classList.toggle('active', btn.id === `chBtn${currentChannel}`);
   });
-  document.getElementById('channelBadge').textContent = `Line ${currentChannel} · Active`;
+
+  const disp = getChannelDisplayName(currentChannel);
+  const badge = document.getElementById('channelBadge');
+  if (badge) badge.textContent = `${disp} · Online`;
+
   const callBtnText = document.getElementById('mainCallBtnText');
   if (callBtnText) {
-    callBtnText.textContent = `CALL ON LINE ${currentChannel} NOW`;
+    callBtnText.textContent = `CALL ON ${disp.toUpperCase()} NOW`;
   }
   
   // Hide busy notice when user switches line
@@ -881,8 +917,7 @@ function applyCustomChannel() {
 }
 
 function autoSelectFreeLine() {
-  // Find first non-busy line
-  const lines = ['101', '102', '103', '104'];
+  const lines = ['101', '102', '103', '104', 'DELHI1', 'MUMBAI1', 'BLR1', 'PUNE1'];
   for (const l of lines) {
     if (!knownLineBusy[l]) {
       setChannel(l);
@@ -890,20 +925,19 @@ function autoSelectFreeLine() {
       return;
     }
   }
-  // If all 4 are busy, pick an express channel
-  setChannel('105');
+  setChannel('101');
   setTimeout(() => { triggerMainCall(); }, 400);
 }
 
 function updateLineStatusIndicators() {
-  ['101', '102', '103', '104'].forEach(l => {
+  ['101', '102', '103', '104', 'DELHI1', 'MUMBAI1', 'BLR1', 'PUNE1'].forEach(l => {
     const dot = document.getElementById('dot' + l);
     const btn = document.getElementById('chBtn' + l);
     const isBusy = !!knownLineBusy[l];
     if (dot) {
       dot.className = `line-status-dot ${isBusy ? 'dot-busy' : 'dot-idle'}`;
     }
-    if (btn) {
+    if (btn && btn.id.startsWith('chBtn10')) {
       btn.classList.toggle('busy', isBusy);
     }
   });
@@ -912,55 +946,69 @@ function updateLineStatusIndicators() {
   if (busyNotice) {
     if (knownLineBusy[currentChannel]) {
       busyNotice.style.display = 'block';
-      document.getElementById('busyNoticeTitle').textContent = `Line ${currentChannel} is Currently In Call!`;
+      document.getElementById('busyNoticeTitle').textContent = `${getChannelDisplayName(currentChannel)} is Currently In Call!`;
     } else {
       busyNotice.style.display = 'none';
     }
   }
 }
 
-function getPrimaryPeerId() {
-  return `cs_line_${currentChannel}_primary`;
-}
-
-function getSecondaryPeerId() {
-  return `cs_line_${currentChannel}_sub`;
-}
-
-// ── 2. Reliable Cloud PeerJS Connection with Auto-Registration & Busy Handling ──
+// ── 2. Reliable Cloud PeerJS Connection with Auto-Registration & Multi-Slot ──
 let isLineBusy = false;
 let isHuntingActive = false;
+const ROOM_SLOTS = ['A', 'B', 'C', 'D'];
+let myCurrentSlotIndex = 0;
+let myAssignedPeerId = null;
+
+function getSlotPeerId(slotLetter) {
+  return `cs_${currentChannel}_${slotLetter}`;
+}
 
 function reconnectPeer() {
   if (myPeer && !myPeer.destroyed) {
-    myPeer.destroy();
+    try {
+      if (myPeer.socket) myPeer.socket.close();
+      myPeer.destroy();
+    } catch(e){}
+    myPeer = null;
   }
 
-  document.getElementById('statusBadge').textContent = '● Connecting...';
+  const badge = document.getElementById('statusBadge');
+  if (badge) {
+    badge.textContent = `● Connecting ${getChannelDisplayName(currentChannel)}...`;
+    badge.style.borderColor = 'var(--cs-yellow)';
+    badge.style.color = 'var(--cs-yellow)';
+  }
 
-  // Strategy: Try primary peer ID first. If already taken, automatically register as sub peer!
-  const primaryId = getPrimaryPeerId();
-  initPeerWithId(primaryId);
+  myCurrentSlotIndex = 0;
+  tryConnectNextSlot();
+}
+
+function tryConnectNextSlot() {
+  if (myCurrentSlotIndex < ROOM_SLOTS.length) {
+    const slotLetter = ROOM_SLOTS[myCurrentSlotIndex];
+    initPeerWithId(getSlotPeerId(slotLetter));
+  } else {
+    // If all 4 static slots are temporarily ghosted on server, connect with random session slot
+    const randomSlot = `cs_${currentChannel}_x${Math.floor(Math.random() * 900 + 100)}`;
+    initPeerWithId(randomSlot);
+  }
 }
 
 function initPeerWithId(peerId) {
+  myAssignedPeerId = peerId;
   myPeer = new Peer(peerId, {
     debug: 1,
     config: {
       iceServers: [
-        // 🌐 Google Universal STUN Servers
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
-        // 🌐 Cloudflare & Mozilla STUN
         { urls: 'stun:stun.cloudflare.com:3478' },
-        { urls: 'stun:stun.services.mozilla.com:3478' },
-        // 🌐 Metered STUN Relays (Ports 80 & 443)
         { urls: 'stun:stun.relay.metered.ca:80' },
         { urls: 'stun:stun.relay.metered.ca:443' },
-        // 🚀 High-Speed TURN Relay Servers (Enables 4G, 5G, LTE, Symmetric CGNAT & Wi-Fi cross-network calling)
         {
           urls: 'turn:openrelay.metered.ca:80',
           username: 'openrelay',
@@ -988,30 +1036,35 @@ function initPeerWithId(peerId) {
   });
 
   myPeer.on('open', (assignedId) => {
-    document.getElementById('statusBadge').textContent = `● Line ${currentChannel} (ONLINE)`;
-    document.getElementById('statusBadge').style.borderColor = 'var(--cs-green)';
-    document.getElementById('statusBadge').style.color = 'var(--cs-green)';
+    myAssignedPeerId = assignedId;
+    const disp = getChannelDisplayName(currentChannel);
+    const badge = document.getElementById('statusBadge');
+    if (badge) {
+      badge.textContent = `● ${disp} (ONLINE)`;
+      badge.style.borderColor = 'var(--cs-green)';
+      badge.style.color = 'var(--cs-green)';
+    }
     knownLineBusy[currentChannel] = false;
     updateLineStatusIndicators();
   });
 
   myPeer.on('disconnected', () => {
-    document.getElementById('statusBadge').textContent = '● Reconnecting...';
-    document.getElementById('statusBadge').style.color = 'var(--cs-yellow)';
+    const badge = document.getElementById('statusBadge');
+    if (badge) {
+      badge.textContent = '● Reconnecting...';
+      badge.style.color = 'var(--cs-yellow)';
+    }
     try { myPeer.reconnect(); } catch(e){}
   });
 
-  // Handle incoming call with busy detection & multi-user routing
   myPeer.on('call', (call) => {
     if (currentCall) {
-      console.log('Line ' + currentChannel + ' is already active with another conversation.');
-      knownLineBusy[currentChannel] = true;
-      updateLineStatusIndicators();
+      console.log('Channel ' + currentChannel + ' is busy with another call.');
       try {
         const busyConn = myPeer.connect(call.peer);
         busyConn.on('open', () => {
           busyConn.send({ type: 'LINE_BUSY', line: currentChannel });
-          setTimeout(() => { try { busyConn.close(); } catch(e){} }, 1000);
+          setTimeout(() => { try { busyConn.close(); } catch(e){} }, 800);
         });
       } catch(e){}
       call.close();
@@ -1019,7 +1072,8 @@ function initPeerWithId(peerId) {
     }
 
     incomingCallObj = call;
-    document.getElementById('incomingCallerId').textContent = `Line ${currentChannel} Incoming Call`;
+    const disp = getChannelDisplayName(currentChannel);
+    document.getElementById('incomingCallerId').textContent = `${disp} Incoming Call`;
     document.getElementById('incomingModal').classList.add('active');
     triggerAlarmHaptic(300);
     playDiscreteChime(580);
@@ -1030,54 +1084,62 @@ function initPeerWithId(peerId) {
   });
 
   myPeer.on('error', (err) => {
-    console.warn('Peer error:', err.type);
+    console.warn('Peer error:', err.type, err);
     if (err.type === 'unavailable-id') {
-      // Primary ID is already taken by the other phone on this line!
-      // This means the other phone is already waiting on Line currentChannel.
-      // We seamlessly connect as the companion peer.
-      if (peerId === getPrimaryPeerId()) {
-        console.log(`Primary Line ${currentChannel} is waiting. Connecting companion ID...`);
-        initPeerWithId(getSecondaryPeerId());
-      }
+      // Slot taken or ghost-locked: seamlessly try next room slot
+      myCurrentSlotIndex++;
+      tryConnectNextSlot();
     } else if (err.type === 'peer-unavailable') {
-      handlePeerUnavailable();
+      handleCandidatePeerUnavailable();
     }
   });
 }
 
-// ── Smart Busy-Line Hunting & Auto-Transfer ────────────────────────────────
-function handlePeerUnavailable() {
-  knownLineBusy[currentChannel] = true;
-  updateLineStatusIndicators();
+let callingCandidateQueue = [];
+let callWaitingTimer = null;
 
-  const busyNotice = document.getElementById('lineBusyNotice');
-  if (busyNotice) {
-    busyNotice.style.display = 'block';
-    document.getElementById('busyNoticeTitle').textContent = `Line ${currentChannel} is Busy / Waiting for Companion`;
-    document.getElementById('busyNoticeDesc').textContent = 
-      `No active receiver detected on Line ${currentChannel} or the line is occupied. You can wait or tap auto-switch below.`;
-  }
+function getPartnerSlots() {
+  const mySlotLetter = myAssignedPeerId ? myAssignedPeerId.split('_').pop() : 'A';
+  return ROOM_SLOTS
+    .filter(s => s !== mySlotLetter)
+    .map(s => getSlotPeerId(s));
+}
 
-  const currentNum = parseInt(currentChannel, 10);
-  if (!isNaN(currentNum) && currentNum >= 101 && currentNum < 105 && isHuntingActive) {
-    const nextLine = String(currentNum + 1);
-    showHuntingToast(`Line ${currentChannel} busy. Auto-hunting Line ${nextLine}...`);
-    setChannel(nextLine);
+function handleCandidatePeerUnavailable() {
+  if (!isHuntingActive) return;
+  if (callingCandidateQueue.length > 0) {
+    const nextTarget = callingCandidateQueue.shift();
+    showHuntingToast(`Checking partner (${nextTarget.split('_').pop()})...`);
     setTimeout(() => {
-      triggerMainCall();
-    }, 800);
+      if (isHuntingActive) executeStartCall(nextTarget);
+    }, 350);
   } else {
-    isHuntingActive = false;
-    endCall();
+    // Partner slots were checked. Companion might still be opening the line/hub.
+    const disp = getChannelDisplayName(currentChannel);
+    showHuntingToast(`Waiting for companion on ${disp}... (Auto-calling)`);
+    if (callWaitingTimer) clearTimeout(callWaitingTimer);
+    callWaitingTimer = setTimeout(() => {
+      if (isHuntingActive && !currentCall) {
+        callingCandidateQueue = getPartnerSlots();
+        if (callingCandidateQueue.length > 0) {
+          executeStartCall(callingCandidateQueue.shift());
+        }
+      }
+    }, 2500);
   }
 }
 
 function showHuntingToast(msg) {
   const badge = document.getElementById('statusBadge');
   if (badge) {
-    badge.textContent = `🔄 Auto-Hunting...`;
+    badge.textContent = `📞 Calling...`;
     badge.style.color = 'var(--cs-cyan)';
   }
+  const statusEl = document.getElementById('callConnectionStatus');
+  if (statusEl) {
+    statusEl.textContent = `📞 ` + msg;
+  }
+}
   const statusEl = document.getElementById('callConnectionStatus');
   if (statusEl) {
     statusEl.textContent = `🔄 ` + msg;
@@ -1203,27 +1265,53 @@ function setupDataConnection(conn) {
 function triggerMainCall() {
   isActualCaller = true;
   isHuntingActive = true;
-  // If my current ID is secondary, call primary. If my ID is primary, call secondary!
-  const target = (myPeer && myPeer.id === getSecondaryPeerId()) ? getPrimaryPeerId() : getSecondaryPeerId();
-  executeStartCall(target);
+  callingCandidateQueue = getPartnerSlots();
+  if (callingCandidateQueue.length > 0) {
+    const target = callingCandidateQueue.shift();
+    executeStartCall(target);
+  }
 }
 
 window.setPreselectedChannel = function(targetNumber) {
-  let clean = String(targetNumber).replace(/[^a-zA-Z0-9]/g, '').trim();
+  let clean = String(targetNumber).toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
   if (!clean) clean = '101';
   setChannel(clean);
-  // Preselected on line without immediately autodialing
 };
 
 window.directCallNumber = function(targetNumber) {
-  let clean = String(targetNumber).replace(/[^a-zA-Z0-9]/g, '').trim();
+  let clean = String(targetNumber).toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
   if (!clean) clean = '101';
   setChannel(clean);
   isActualCaller = true;
   isHuntingActive = true;
-  const target = (myPeer && myPeer.id === getSecondaryPeerId()) ? getPrimaryPeerId() : getSecondaryPeerId();
-  executeStartCall(target);
+  callingCandidateQueue = getPartnerSlots();
+  if (callingCandidateQueue.length > 0) {
+    const target = callingCandidateQueue.shift();
+    executeStartCall(target);
+  }
 };
+
+function injectQuickSpeech(text) {
+  if (!text || !text.trim()) return;
+  const speakerLabel = isActualCaller ? 'User A' : 'User B';
+  processSpokenText(text.trim(), true);
+  updateSpeechActivityIndicator(speakerLabel, text.trim());
+}
+
+function updateSpeechActivityIndicator(speaker, text) {
+  const isA = (speaker || '').includes('User A');
+  const el = document.getElementById(isA ? 'userAMicIndicator' : 'userBMicIndicator');
+  if (el) {
+    el.textContent = '● Voice Active';
+    el.style.color = isA ? '#38bdf8' : '#00ff87';
+    setTimeout(() => {
+      if (el) {
+        el.textContent = '● Standby';
+        el.style.color = '#94a3b8';
+      }
+    }, 2800);
+  }
+}
 
 // Clean audio stream with Echo Cancellation to eliminate feedback screeching
 async function getCleanAudioStream() {
@@ -1583,13 +1671,13 @@ function setupActiveCall(call, peerName) {
 
   startCallTimer();
   
-  // Ensure STT starts cleanly without mic stream contention
+  // Ensure STT starts cleanly without mic stream contention (giving WebRTC audio 900ms to stabilize)
   setTimeout(() => {
     startContinuousSpeechInterceptor();
     if (localMediaStream) {
       initAcousticPitchTracker(localMediaStream);
     }
-  }, 300);
+  }, 900);
 }
 
 // ── 6. End Call (Guaranteed Automatic Cut on Both Devices) ──────────────────
@@ -1888,6 +1976,7 @@ function processSpokenText(rawText, isFinal) {
       speaker: speakerLabel,
       isDanger: finalReportedScore >= 35
     });
+    updateSpeechActivityIndicator(speakerLabel, rawText);
   }
 
   // ── GUARANTEED ASYMMETRIC ROLE ENFORCEMENT ──
@@ -1949,11 +2038,13 @@ function processSpokenText(rawText, isFinal) {
 }
 
 // ── Autonomous Remote Speech Analysis Engine ──
-// Triggered on receiving remote audio transcript over WebRTC DataChannel (4G / 5G / Wi-Fi)
 function processRemoteSpokenText(remoteText) {
+  if (!remoteText) return;
+  updateSpeechActivityIndicator(isActualCaller ? 'User B' : 'User A', remoteText);
+
   // If this device is the CALLER (User A), it is the suspect/scammer!
   // User A MUST NEVER BECOME THE VICTIM from remote transcripts!
-  if (!remoteText || isActualCaller || autoDetectedRole === 'SCAMMER') return;
+  if (isActualCaller || autoDetectedRole === 'SCAMMER') return;
 
   const normalized = normalizeSpokenText(remoteText);
   let totalScore = 0;
