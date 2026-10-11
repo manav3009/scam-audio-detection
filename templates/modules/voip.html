@@ -1518,7 +1518,7 @@ async function executeStartCall() {
       if (call) {
         activeOutgoingCalls.push(call);
         call.on('stream', (remoteStream) => {
-          currentCall = call;
+          setupActiveCall(call, target);
           attachRemoteAudio(remoteStream);
           activeOutgoingCalls.forEach(c => {
             if (c !== call) { try { c.close(); } catch(err){} }
