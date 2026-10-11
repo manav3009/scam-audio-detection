@@ -961,10 +961,10 @@ function updateLineStatusIndicators() {
   }
 }
 
-// ── 2. Reliable Cloud PeerJS Connection with Auto-Registration & 8-Slot Pool ──
+// ── 2. Reliable Cloud PeerJS Connection with Strict 2-Slot Deterministic Pairing ──
 let isLineBusy = false;
 let isHuntingActive = false;
-const ROOM_SLOTS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+const ROOM_SLOTS = ['A', 'B'];
 let myCurrentSlotIndex = 0;
 let myAssignedPeerId = null;
 
@@ -972,9 +972,20 @@ function getSlotPeerId(slotLetter) {
   return `cs_${currentChannel}_${slotLetter}`;
 }
 
+function getMySlotLetter() {
+  return myAssignedPeerId ? myAssignedPeerId.split('_').pop() : 'A';
+}
+
+function getPartnerPeerId() {
+  const mySlot = getMySlotLetter();
+  const partnerSlot = mySlot === 'A' ? 'B' : 'A';
+  return `cs_${currentChannel}_${partnerSlot}`;
+}
+
 function cleanupPeerConnection() {
   if (callWaitingTimer) { clearTimeout(callWaitingTimer); callWaitingTimer = null; }
   isHuntingActive = false;
+  isActualCaller = false;
   if (dataConn) { try { dataConn.close(); } catch(e){} dataConn = null; }
   if (currentCall) { try { currentCall.close(); } catch(e){} currentCall = null; }
   if (localMediaStream) {
@@ -1019,11 +1030,11 @@ function tryConnectNextSlot() {
     const slotLetter = ROOM_SLOTS[myCurrentSlotIndex];
     initPeerWithId(getSlotPeerId(slotLetter));
   } else {
-    // If all static slots in pool are occupied or releasing, cycle back to slot A after brief delay
+    // If both slots A and B are temporarily busy or releasing, cycle back to slot A after 400ms
     myCurrentSlotIndex = 0;
     setTimeout(() => {
       tryConnectNextSlot();
-    }, 600);
+    }, 400);
   }
 }
 
@@ -1047,7 +1058,23 @@ function initPeerWithId(peerId) {
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
-        { urls: 'stun:stun.cloudflare.com:3478' }
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:openrelay.metered.ca:80' },
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelay',
+          credential: 'openrelay'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelay',
+          credential: 'openrelay'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelay',
+          credential: 'openrelay'
+        }
       ]
     }
   });
@@ -1056,8 +1083,9 @@ function initPeerWithId(peerId) {
     myAssignedPeerId = assignedId;
     const disp = getChannelDisplayName(currentChannel);
     const badge = document.getElementById('statusBadge');
+    const slot = getMySlotLetter();
     if (badge) {
-      badge.textContent = `● ${disp} (ONLINE)`;
+      badge.textContent = `● ${disp} (User ${slot} · ONLINE)`;
       badge.style.borderColor = 'var(--cs-green)';
       badge.style.color = 'var(--cs-green)';
     }
@@ -1088,12 +1116,22 @@ function initPeerWithId(peerId) {
       return;
     }
 
+    // Receiving phone is GUARANTEED to be receiver (User B)
+    isActualCaller = false;
     incomingCallObj = call;
     const disp = getChannelDisplayName(currentChannel);
     document.getElementById('incomingCallerId').textContent = `${disp} Incoming Call`;
     document.getElementById('incomingModal').classList.add('active');
     triggerAlarmHaptic(300);
     playDiscreteChime(580);
+
+    // Pre-warm audio stream so acceptCall() has 0ms latency
+    getCleanAudioStream().then(s => { localMediaStream = s; }).catch(()=>{});
+
+    // Notify caller that phone is ringing
+    if (dataConn && dataConn.open) {
+      try { dataConn.send({ type: 'CALL_RINGING' }); } catch(e){}
+    }
   });
 
   myPeer.on('connection', (conn) => {
@@ -1103,53 +1141,20 @@ function initPeerWithId(peerId) {
   myPeer.on('error', (err) => {
     console.warn('Peer error:', err.type, err);
     if (err.type === 'unavailable-id') {
-      // Slot taken or ghost-locked: seamlessly try next room slot
+      // Slot taken: try slot B
       myCurrentSlotIndex++;
       setTimeout(tryConnectNextSlot, 80);
     } else if (err.type === 'peer-unavailable') {
-      handleCandidatePeerUnavailable();
+      const statusEl = document.getElementById('callConnectionStatus');
+      if (statusEl && isActualCaller) {
+        statusEl.textContent = '⏳ Waiting for companion to open ' + getChannelDisplayName(currentChannel) + '...';
+      }
     }
   });
 }
 
 let callingCandidateQueue = [];
 let callWaitingTimer = null;
-
-function getPartnerSlots() {
-  const mySlotLetter = myAssignedPeerId ? myAssignedPeerId.split('_').pop() : 'A';
-  return ROOM_SLOTS
-    .filter(s => s !== mySlotLetter)
-    .map(s => getSlotPeerId(s));
-}
-
-let lastCandidateFailTime = 0;
-function handleCandidatePeerUnavailable() {
-  if (!isHuntingActive) return;
-  const now = Date.now();
-  if (now - lastCandidateFailTime < 180) return;
-  lastCandidateFailTime = now;
-
-  if (callingCandidateQueue.length > 0) {
-    const nextTarget = callingCandidateQueue.shift();
-    showHuntingToast(`Checking partner slot (${nextTarget.split('_').pop()})...`);
-    setTimeout(() => {
-      if (isHuntingActive) executeStartCall(nextTarget);
-    }, 200);
-  } else {
-    // Partner slots were checked. Companion might still be opening the line/hub.
-    const disp = getChannelDisplayName(currentChannel);
-    showHuntingToast(`Waiting for companion on ${disp}... (Auto-calling)`);
-    if (callWaitingTimer) clearTimeout(callWaitingTimer);
-    callWaitingTimer = setTimeout(() => {
-      if (isHuntingActive && !currentCall) {
-        callingCandidateQueue = getPartnerSlots();
-        if (callingCandidateQueue.length > 0) {
-          executeStartCall(callingCandidateQueue.shift());
-        }
-      }
-    }, 2000);
-  }
-}
 
 function showHuntingToast(msg) {
   const badge = document.getElementById('statusBadge');
@@ -1225,7 +1230,21 @@ function setupDataConnection(conn) {
   });
   dataConn.on('data', (data) => {
     if (!data) return;
-    if (data.type === 'LINE_BUSY') {
+    if (data.type === 'CALL_RINGING') {
+      const statusEl = document.getElementById('callConnectionStatus');
+      if (statusEl && isActualCaller) {
+        statusEl.textContent = '🔔 Recipient is ringing...';
+      }
+    } else if (data.type === 'CALL_ANSWERED') {
+      // Recipient answered the call!
+      isHuntingActive = false;
+      if (callWaitingTimer) { clearTimeout(callWaitingTimer); callWaitingTimer = null; }
+      const statusEl = document.getElementById('callConnectionStatus');
+      if (statusEl) {
+        statusEl.textContent = '🛡️ Live Clear Voice · AI Interception Active';
+      }
+      startCallTimer();
+    } else if (data.type === 'LINE_BUSY') {
       knownLineBusy[data.line || currentChannel] = true;
       updateLineStatusIndicators();
       handlePeerUnavailable();
@@ -1282,11 +1301,8 @@ function setupDataConnection(conn) {
 function triggerMainCall() {
   isActualCaller = true;
   isHuntingActive = true;
-  callingCandidateQueue = getPartnerSlots();
-  if (callingCandidateQueue.length > 0) {
-    const target = callingCandidateQueue.shift();
-    executeStartCall(target);
-  }
+  const target = getPartnerPeerId();
+  executeStartCall(target);
 }
 
 window.setPreselectedChannel = function(targetNumber) {
@@ -1301,11 +1317,8 @@ window.directCallNumber = function(targetNumber) {
   setChannel(clean);
   isActualCaller = true;
   isHuntingActive = true;
-  callingCandidateQueue = getPartnerSlots();
-  if (callingCandidateQueue.length > 0) {
-    const target = callingCandidateQueue.shift();
-    executeStartCall(target);
-  }
+  const target = getPartnerPeerId();
+  executeStartCall(target);
 };
 
 function injectQuickSpeech(text) {
@@ -1330,13 +1343,15 @@ function updateSpeechActivityIndicator(speaker, text) {
   }
 }
 
-// Clean audio stream with Echo Cancellation and Auto Gain (prevents gating out normal conversational volume)
+// High-Sensitivity Voice Capture with Auto-Gain Boost (No Loud Shouting Required!)
 async function getCleanAudioStream() {
   const constraints = {
     audio: {
-      echoCancellation: true,
-      noiseSuppression: false, // CRITICAL: Disabled so normal conversational speech is NOT cut off!
-      autoGainControl: true     // CRITICAL: Boosts normal voice sensitivity!
+      echoCancellation: false,  // Disabled hardware DSP gating so soft conversational voice is NOT cut off!
+      noiseSuppression: false,  // Disabled so normal natural speaking volume is captured clearly!
+      autoGainControl: true,    // Boosts soft and normal voice levels automatically!
+      channelCount: 1,
+      sampleRate: 48000
     },
     video: false
   };
@@ -1348,8 +1363,8 @@ async function getCleanAudioStream() {
 }
 
 async function executeStartCall(target) {
-  if (!isHuntingActive) return;
-  showHuntingToast(`Calling companion (${target.split('_').pop()})...`);
+  const disp = getChannelDisplayName(currentChannel);
+  showHuntingToast(`Calling companion on ${disp}...`);
 
   try {
     if (!localMediaStream) {
@@ -1361,7 +1376,7 @@ async function executeStartCall(target) {
     return;
   }
 
-  // Probe companion DataChannel
+  // Connect companion DataChannel
   try {
     const conn = myPeer.connect(target, { reliable: true });
     setupDataConnection(conn);
@@ -1375,7 +1390,7 @@ async function executeStartCall(target) {
     }
   } catch(e) {
     console.warn("Peer call exception:", e);
-    handleCandidatePeerUnavailable();
+    showHuntingToast('Could not reach companion on ' + disp);
   }
 }
 
@@ -1611,15 +1626,32 @@ async function acceptCall() {
   const audioEl = document.getElementById('remoteAudio');
   if (audioEl) { audioEl.play().catch(()=>{}); }
 
+  // GUARANTEED: The answering phone is ALWAYS User B (Receiver)
   isActualCaller = false;
   try {
-    localMediaStream = await getCleanAudioStream();
+    if (!localMediaStream) {
+      localMediaStream = await getCleanAudioStream();
+    }
   } catch(e) {
     alert('Microphone permission required.');
     return;
   }
 
   const callerPeerId = incomingCallObj.peer;
+
+  // Notify caller immediately over DataConnection that call is answered!
+  try {
+    if (dataConn && dataConn.open) {
+      dataConn.send({ type: 'CALL_ANSWERED' });
+    } else if (myPeer) {
+      const ansConn = myPeer.connect(callerPeerId, { reliable: true });
+      setupDataConnection(ansConn);
+      ansConn.on('open', () => {
+        try { ansConn.send({ type: 'CALL_ANSWERED' }); } catch(e){}
+      });
+    }
+  } catch(e){}
+
   incomingCallObj.answer(localMediaStream);
   setupActiveCall(incomingCallObj, callerPeerId);
 
@@ -1649,6 +1681,21 @@ function rejectCall() {
 }
 
 // ── 5. Setup Active Call ───────────────────────────────────────────────────
+function attachRemoteAudio(remoteStream) {
+  isHuntingActive = false;
+  if (callWaitingTimer) { clearTimeout(callWaitingTimer); callWaitingTimer = null; }
+  const audioEl = document.getElementById('remoteAudio');
+  if (audioEl) {
+    if (audioEl.srcObject !== remoteStream) {
+      audioEl.srcObject = remoteStream;
+    }
+    audioEl.volume = 1.0;
+    audioEl.play().catch(e => console.log('Audio autoplay unlock note:', e));
+  }
+  document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
+  startCallTimer();
+}
+
 function setupActiveCall(call, peerName) {
   currentCall = call;
   document.getElementById('lobbyScreen').style.display = 'none';
@@ -1657,35 +1704,31 @@ function setupActiveCall(call, peerName) {
   const myUserLabel = isActualCaller ? 'User A (Caller)' : 'User B (Receiver)';
   const peerDisplay = isActualCaller ? 'Connected to User B' : 'Connected to User A';
   document.getElementById('callPeerName').textContent = `Line ${currentChannel} · ${myUserLabel}`;
-  document.getElementById('callConnectionStatus').textContent = `🛡️ Live Interception · ${peerDisplay}`;
+  document.getElementById('callConnectionStatus').textContent = isActualCaller ? '📞 Ringing companion...' : `🛡️ Live Interception · ${peerDisplay}`;
 
   autoDetectedRole = 'NEUTRAL';
   hasSoundedAlertInCall = false;
   updateAutoRoleDisplay();
 
-  // 1. Audio stream setup
+  // 1. Audio stream setup (PeerJS event)
   call.on('stream', (remoteStream) => {
-    isHuntingActive = false;
-    if (callWaitingTimer) { clearTimeout(callWaitingTimer); callWaitingTimer = null; }
-    const audioEl = document.getElementById('remoteAudio');
-    if (audioEl) {
-      audioEl.srcObject = remoteStream;
-      audioEl.volume = 1.0;
-      audioEl.play().catch(e => console.log('Audio autoplay unlock note:', e));
-    }
-    document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
-    startCallTimer();
+    attachRemoteAudio(remoteStream);
   });
 
-  // 2. Underlying WebRTC RTCPeerConnection monitoring
+  // 2. Underlying WebRTC RTCPeerConnection monitoring & direct track hook
   if (call.peerConnection) {
     const pc = call.peerConnection;
+    pc.ontrack = (event) => {
+      if (event.streams && event.streams[0]) {
+        attachRemoteAudio(event.streams[0]);
+      }
+    };
     pc.addEventListener('connectionstatechange', () => {
       console.log('RTCPeerConnection state:', pc.connectionState);
       if (pc.connectionState === 'connected') {
         document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
-      } else if (pc.connectionState === 'closed' && !isHuntingActive) {
-        console.log('PeerConnection permanently closed. Cleaning up call.');
+        startCallTimer();
+      } else if (pc.connectionState === 'closed') {
         endCall(false);
       }
     });
@@ -1693,6 +1736,7 @@ function setupActiveCall(call, peerName) {
       console.log('ICE connection state:', pc.iceConnectionState);
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
+        startCallTimer();
       } else if (pc.iceConnectionState === 'failed') {
         console.warn('ICE failed. Attempting ICE restart.');
         try { pc.restartIce(); } catch(e){}
@@ -1703,15 +1747,10 @@ function setupActiveCall(call, peerName) {
   // 3. PeerJS call close & error events
   call.on('close', () => {
     console.log('PeerJS call closed.');
-    if (!isHuntingActive) {
-      endCall(false);
-    }
+    endCall(false);
   });
   call.on('error', (e) => {
     console.warn('PeerJS call non-fatal error:', e);
-    if (isHuntingActive) {
-      handleCandidatePeerUnavailable();
-    }
   });
 
   if (!isActualCaller) {
@@ -1754,6 +1793,9 @@ function endCall(notifyPeer = true) {
   peakRisk = 0;
   updateRiskDisplay(0, 'LOW RISK', '—');
 
+  // CRITICAL: Guaranteed reset of caller and hunting state
+  isActualCaller = false;
+  isHuntingActive = false;
   autoDetectedRole = 'NEUTRAL';
   hasSoundedAlertInCall = false;
   updateAutoRoleDisplay();
