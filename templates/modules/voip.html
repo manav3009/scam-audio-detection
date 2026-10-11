@@ -980,9 +980,9 @@ function getMySlotLetter() {
 
 function getPartnerSlots() {
   const mySlot = getMySlotLetter();
-  return ROOM_SLOTS
-    .filter(s => s !== mySlot)
-    .map(s => getSlotPeerId(s));
+  if (mySlot === 'A') return [getSlotPeerId('B')];
+  if (mySlot === 'B') return [getSlotPeerId('A')];
+  return [getSlotPeerId('A'), getSlotPeerId('B')];
 }
 
 function cleanupPeerConnection() {
@@ -1174,138 +1174,165 @@ setInterval(() => {
 }, 10000);
 
 let dataOutbox = [];
+let activeDataConnections = {};
 
 function sendDataToPeer(payload) {
+  let sent = false;
+  const openConns = Object.values(activeDataConnections).filter(c => c && c.open);
+  if (openConns.length > 0) {
+    openConns.forEach(c => {
+      try {
+        c.send(payload);
+        sent = true;
+      } catch(e){}
+    });
+    if (sent) return true;
+  }
   if (dataConn && dataConn.open) {
     try {
       dataConn.send(payload);
       return true;
-    } catch(e) {
-      console.warn('sendDataToPeer error, queuing message:', e);
-    }
+    } catch(e){}
   }
   dataOutbox.push(payload);
   return false;
 }
 
 function flushDataOutbox() {
-  if (!dataConn || !dataConn.open) return;
+  const openConns = Object.values(activeDataConnections).filter(c => c && c.open);
+  if (openConns.length === 0 && (!dataConn || !dataConn.open)) return;
   while (dataOutbox.length > 0) {
     const msg = dataOutbox.shift();
-    try {
-      dataConn.send(msg);
-    } catch(e) {
+    let sent = false;
+    openConns.forEach(c => {
+      try { c.send(msg); sent = true; } catch(e){}
+    });
+    if (!sent && dataConn && dataConn.open) {
+      try { dataConn.send(msg); sent = true; } catch(e){}
+    }
+    if (!sent) {
       dataOutbox.unshift(msg);
       break;
     }
   }
 }
 
+function handleIncomingPeerData(data, conn) {
+  if (!data) return;
+  if (data.type === 'CALL_RINGING') {
+    const statusEl = document.getElementById('callConnectionStatus');
+    if (statusEl && isActualCaller) {
+      statusEl.textContent = '🔔 Recipient is ringing...';
+    }
+  } else if (data.type === 'CALL_ANSWERED') {
+    isHuntingActive = false;
+    if (callWaitingTimer) { clearTimeout(callWaitingTimer); callWaitingTimer = null; }
+    const statusEl = document.getElementById('callConnectionStatus');
+    if (statusEl) {
+      statusEl.textContent = '🛡️ Live Clear Voice · AI Interception Active';
+    }
+    startCallTimer();
+    if (activeOutgoingCalls && activeOutgoingCalls.length > 0) {
+      const answeredCall = activeOutgoingCalls.find(c => c && (!data.answeredBy || c.peer === data.answeredBy));
+      if (answeredCall) {
+        currentCall = answeredCall;
+      }
+      activeOutgoingCalls.forEach(c => {
+        if (c !== currentCall) {
+          try { c.close(); } catch(e){}
+        }
+      });
+      activeOutgoingCalls = currentCall ? [currentCall] : [];
+    }
+  } else if (data.type === 'LINE_BUSY') {
+    knownLineBusy[data.line || currentChannel] = true;
+    updateLineStatusIndicators();
+    handlePeerUnavailable();
+  } else if (data.type === 'CALL_DECLINED') {
+    showHuntingToast("Call was declined by recipient.");
+    setTimeout(() => {
+      endCall(false);
+      alert("📵 Call was declined by recipient.");
+    }, 300);
+  } else if (data.type === 'CALL_ENDED') {
+    console.log('Received CALL_ENDED signal from peer.');
+    endCall(false);
+  } else if (data.type === 'ROLE_LOCK' || data.type === 'ROLE_SYNC') {
+    if (myCallRole === 'CALLER' || isActualCaller) {
+      autoDetectedRole = 'SCAMMER';
+      updateAutoRoleDisplay();
+      showStealthNotice(data.score || 95, data.keywords || ['Fraud Patterns']);
+    } else {
+      autoDetectedRole = 'VICTIM';
+      updateAutoRoleDisplay();
+      triggerVictimAlert(data.score || 95, data.keywords || ['Sensitive Info'], `🚨 FRAUD ALERT: Suspect caller is asking for sensitive OTP / Banking credentials!`);
+    }
+  } else if (data.type === 'FRAUD_ALERT') {
+    if (myCallRole === 'CALLER' || isActualCaller) {
+      autoDetectedRole = 'SCAMMER';
+      updateAutoRoleDisplay();
+      showStealthNotice(data.score || 95, data.keywords || ['Fraud Patterns']);
+    } else {
+      autoDetectedRole = 'VICTIM';
+      updateAutoRoleDisplay();
+      triggerVictimAlert(data.score || 95, data.keywords || ['Sensitive Credentials'], `🚨 FRAUD ALERT: Suspect caller is asking for sensitive OTP / Banking credentials!`);
+    }
+  } else if (data.type === 'TRANSCRIPT') {
+    recordRemoteTranscript(data.text);
+    let remoteSpeaker = 'User B';
+    if (data.senderRole === 'CALLER' || data.speaker === 'User A') {
+      remoteSpeaker = 'User A';
+    } else if (data.senderRole === 'RECEIVER' || data.speaker === 'User B') {
+      remoteSpeaker = 'User B';
+    } else {
+      remoteSpeaker = (myCallRole === 'CALLER' || isActualCaller) ? 'User B' : 'User A';
+    }
+    appendTranscript(remoteSpeaker, data.text, data.isDanger);
+    if (data.text) {
+      processRemoteSpokenText(data.text);
+    }
+  }
+}
+
 function setupDataConnection(conn) {
   if (!conn) return;
-  dataConn = conn;
-  dataConn.on('open', () => {
-    console.log('Data connection is active with peer');
+
+  conn.on('open', () => {
+    console.log('Data connection is active with peer:', conn.peer);
+    activeDataConnections[conn.peer] = conn;
+    dataConn = conn;
     flushDataOutbox();
-    // Immediate handshake confirming live bidirectional channel
     try {
-      dataConn.send({
+      conn.send({
         type: 'PEER_SYNC',
-        sender: isActualCaller ? 'User A' : 'User B',
-        role: isActualCaller ? 'CALLER' : 'RECEIVER'
+        sender: (myCallRole === 'CALLER' || isActualCaller) ? 'User A' : 'User B',
+        role: (myCallRole === 'CALLER' || isActualCaller) ? 'CALLER' : 'RECEIVER'
       });
     } catch(e){}
   });
-  dataConn.on('close', () => {
-    console.log('Data connection closed by peer or transient network shift.');
-  });
-  dataConn.on('error', (err) => {
-    console.warn('Data connection error:', err);
-  });
-  dataConn.on('data', (data) => {
-    if (!data) return;
-    if (data.type === 'CALL_RINGING') {
-      const statusEl = document.getElementById('callConnectionStatus');
-      if (statusEl && isActualCaller) {
-        statusEl.textContent = '🔔 Recipient is ringing...';
-      }
-    } else if (data.type === 'CALL_ANSWERED') {
-      // Recipient answered the call!
-      isHuntingActive = false;
-      if (callWaitingTimer) { clearTimeout(callWaitingTimer); callWaitingTimer = null; }
-      const statusEl = document.getElementById('callConnectionStatus');
-      if (statusEl) {
-        statusEl.textContent = '🛡️ Live Clear Voice · AI Interception Active';
-      }
-      startCallTimer();
-      // Clean up any extra outgoing calls that were dialed
-      if (activeOutgoingCalls && activeOutgoingCalls.length > 0) {
-        activeOutgoingCalls.forEach(c => {
-          if (c !== currentCall && (!data.answeredBy || c.peer !== data.answeredBy)) {
-            try { c.close(); } catch(e){}
-          }
-        });
-        activeOutgoingCalls = [];
-      }
-    } else if (data.type === 'LINE_BUSY') {
-      knownLineBusy[data.line || currentChannel] = true;
-      updateLineStatusIndicators();
-      handlePeerUnavailable();
-    } else if (data.type === 'CALL_DECLINED') {
-      // Recipient pressed decline button: immediately end call on caller side
-      showHuntingToast("Call was declined by recipient.");
-      setTimeout(() => {
-        endCall(false);
-        alert("📵 Call was declined by recipient.");
-      }, 300);
-    } else if (data.type === 'CALL_ENDED') {
-      // The other party hung up: immediately end call locally
-      console.log('Received CALL_ENDED signal from peer.');
-      endCall(false);
-    } else if (data.type === 'ROLE_LOCK' || data.type === 'ROLE_SYNC') {
-      // 🔒 HARD ASYMMETRIC ROLE LOCKING:
-      // Caller (User A) is ALWAYS locked to Scammer (Stealth Mode)
-      // Receiver (User B) is ALWAYS locked to Victim (Warning Alarm & Vibration)
-      if (isActualCaller) {
-        autoDetectedRole = 'SCAMMER';
-        updateAutoRoleDisplay();
-        showStealthNotice(data.score || 95, data.keywords || ['Fraud Patterns']);
-      } else {
-        autoDetectedRole = 'VICTIM';
-        updateAutoRoleDisplay();
-        triggerVictimAlert(data.score || 95, data.keywords || ['Sensitive Info'], `🚨 FRAUD ALERT: Suspect caller is asking for sensitive OTP / Banking credentials!`);
-      }
-    } else if (data.type === 'FRAUD_ALERT') {
-      if (isActualCaller) {
-        // Suspect caller device NEVER receives victim alarm
-        autoDetectedRole = 'SCAMMER';
-        updateAutoRoleDisplay();
-        showStealthNotice(data.score || 95, data.keywords || ['Fraud Patterns']);
-      } else {
-        // Receiver device receives full alarm
-        autoDetectedRole = 'VICTIM';
-        updateAutoRoleDisplay();
-        triggerVictimAlert(data.score || 95, data.keywords || ['Sensitive Credentials'], `🚨 FRAUD ALERT: Suspect caller is asking for sensitive OTP / Banking credentials!`);
-      }
-    } else if (data.type === 'TRANSCRIPT') {
-      // 1. Record in acoustic loopback buffer so our mic doesn't echo remote voice back as our own
-      recordRemoteTranscript(data.text);
 
-      // 2. Deterministic peer speaker attribution based on explicit packet metadata
-      let remoteSpeaker = 'User B';
-      if (data.senderRole === 'CALLER' || data.speaker === 'User A') {
-        remoteSpeaker = 'User A';
-      } else if (data.senderRole === 'RECEIVER' || data.speaker === 'User B') {
-        remoteSpeaker = 'User B';
-      } else {
-        remoteSpeaker = (myCallRole === 'CALLER') ? 'User B' : 'User A';
-      }
-
-      appendTranscript(remoteSpeaker, data.text, data.isDanger);
-      if (data.text) {
-        processRemoteSpokenText(data.text);
-      }
+  conn.on('close', () => {
+    console.log('Data connection closed with peer:', conn.peer);
+    delete activeDataConnections[conn.peer];
+    if (dataConn === conn) {
+      const remaining = Object.values(activeDataConnections).find(c => c && c.open);
+      dataConn = remaining || null;
     }
+  });
+
+  conn.on('error', (err) => {
+    console.warn('Data connection error with peer:', conn.peer, err);
+    delete activeDataConnections[conn.peer];
+    if (dataConn === conn) {
+      const remaining = Object.values(activeDataConnections).find(c => c && c.open);
+      dataConn = remaining || null;
+    }
+  });
+
+  conn.on('data', (data) => {
+    activeDataConnections[conn.peer] = conn;
+    dataConn = conn;
+    handleIncomingPeerData(data, conn);
   });
 }
 
@@ -1402,7 +1429,18 @@ async function executeStartCall() {
     return;
   }
 
-  // Dial all other slots in parallel on this channel
+  // Set in-call UI immediately so user sees outgoing call status
+  document.getElementById('lobbyScreen').style.display = 'none';
+  document.getElementById('callScreen').style.display = 'block';
+  const myUserLabel = 'User A (Caller)';
+  document.getElementById('callPeerName').textContent = `Line ${currentChannel} · ${myUserLabel}`;
+  document.getElementById('callConnectionStatus').textContent = '📞 Ringing companion...';
+  document.getElementById('callTimer').textContent = 'Ringing...';
+
+  // Force clean restart of speech engine for this call
+  restartSpeechEngineForCall();
+
+  // Dial partner slots
   const targets = getPartnerSlots();
   activeOutgoingCalls = [];
 
@@ -1416,7 +1454,23 @@ async function executeStartCall() {
       const call = myPeer.call(target, localMediaStream);
       if (call) {
         activeOutgoingCalls.push(call);
-        setupActiveCall(call, target);
+        call.on('stream', (remoteStream) => {
+          currentCall = call;
+          attachRemoteAudio(remoteStream);
+          activeOutgoingCalls.forEach(c => {
+            if (c !== call) { try { c.close(); } catch(err){} }
+          });
+          activeOutgoingCalls = [call];
+        });
+        call.on('close', () => {
+          console.log('Outgoing call closed for peer:', target);
+          if (call === currentCall) {
+            endCall(false);
+          }
+        });
+        call.on('error', (e) => {
+          console.warn('Outgoing call non-fatal error for:', target, e);
+        });
       }
     } catch(e){}
   });
@@ -1683,6 +1737,7 @@ async function acceptCall() {
 
   incomingCallObj.answer(localMediaStream);
   setupActiveCall(incomingCallObj, callerPeerId);
+  restartSpeechEngineForCall();
 
   incomingCallObj = null;
 }
@@ -1776,8 +1831,10 @@ function setupActiveCall(call, peerName) {
 
   // 3. PeerJS call close & error events
   call.on('close', () => {
-    console.log('PeerJS call closed.');
-    endCall(false);
+    console.log('PeerJS call closed:', call.peer);
+    if (call === currentCall) {
+      endCall(false);
+    }
   });
   call.on('error', (e) => {
     console.warn('PeerJS call non-fatal error:', e);
@@ -1789,16 +1846,11 @@ function setupActiveCall(call, peerName) {
     document.getElementById('callTimer').textContent = 'Ringing...';
   }
   
-  // Ensure STT starts cleanly without mic stream contention (giving WebRTC audio 700ms to stabilize)
-  setTimeout(() => {
-    lastCommittedUtterance = '';
-    lastUtteranceTime = 0;
-    interimSpeechBuffer = '';
-    startContinuousSpeechInterceptor();
-    if (localMediaStream) {
-      initAcousticPitchTracker(localMediaStream);
-    }
-  }, 700);
+  // Ensure STT restarts cleanly for this active call stream
+  restartSpeechEngineForCall();
+  if (localMediaStream) {
+    initAcousticPitchTracker(localMediaStream);
+  }
 }
 
 // ── 6. End Call (Guaranteed Automatic Cut on Both Devices) ──────────────────
@@ -1823,13 +1875,25 @@ function endCall(notifyPeer = true) {
   peakRisk = 0;
   updateRiskDisplay(0, 'LOW RISK', '—');
 
-  // CRITICAL: Guaranteed reset of caller and hunting state
+  // CRITICAL: Guaranteed reset of caller, hunting, and line busy states
   isActualCaller = false;
   myCallRole = 'NEUTRAL';
   isHuntingActive = false;
   autoDetectedRole = 'NEUTRAL';
   hasSoundedAlertInCall = false;
+  knownLineBusy[currentChannel] = false; // Reset line busy status so next call works immediately!
+  updateLineStatusIndicators();
   updateAutoRoleDisplay();
+
+  // Reset calls and data channels synchronously
+  if (currentCall) { try { currentCall.close(); } catch(e){} currentCall = null; }
+  incomingCallObj = null;
+  activeDataConnections = {};
+  if (dataConn) { try { dataConn.close(); } catch(e){} dataConn = null; }
+  if (activeOutgoingCalls && activeOutgoingCalls.length > 0) {
+    activeOutgoingCalls.forEach(c => { try { c.close(); } catch(e){} });
+    activeOutgoingCalls = [];
+  }
 
   // 2. Clean up media streams, pitch tracker, and speech recognizer
   if (audioPitchTimer) { clearInterval(audioPitchTimer); audioPitchTimer = null; }
@@ -1852,23 +1916,14 @@ function endCall(notifyPeer = true) {
   interimSpeechBuffer = '';
   lastCommittedUtterance = '';
   isRecognitionRunning = false;
+  isSTTRestartPending = false;
   if (recognition) { try { recognition.abort(); } catch(e){} recognition = null; }
   if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
   // Revive continuous STT cleanly for lobby preview
   scheduleSTTRestart(600);
 
-  // 3. Gracefully tear down PeerJS connection objects and refresh Peer instance
+  // 3. Keep Peer alive for instant subsequent calls
   setTimeout(() => {
-    if (currentCall) { try { currentCall.close(); } catch(e){} currentCall = null; }
-    if (dataConn) { try { dataConn.close(); } catch(e){} dataConn = null; }
-    if (activeOutgoingCalls && activeOutgoingCalls.length > 0) {
-      activeOutgoingCalls.forEach(c => { try { c.close(); } catch(e){} });
-      activeOutgoingCalls = [];
-    }
-    incomingCallObj = null;
-    isHuntingActive = false;
-
-    // KEEP PEER ALIVE if already healthy and open so 2nd, 3rd, and unlimited calls work INSTANTLY!
     if (myPeer && !myPeer.destroyed && myPeer.open) {
       const disp = getChannelDisplayName(currentChannel);
       const badge = document.getElementById('statusBadge');
@@ -1881,7 +1936,7 @@ function endCall(notifyPeer = true) {
     } else {
       reconnectPeer();
     }
-  }, 250);
+  }, 200);
 }
 
 function startCallTimer() {
@@ -2004,13 +2059,37 @@ function restartSTT() {
   }
 }
 
-function scheduleSTTRestart(delay = 800) {
-  if (isSTTRestartPending) return;
-  isSTTRestartPending = true;
+function restartSpeechEngineForCall() {
+  console.log('[STT] Forcing clean restart of speech engine for active call stream...');
+  if (recognition) {
+    try {
+      isRecognitionRunning = false;
+      recognition.onstart = null;
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      recognition.abort();
+    } catch(e){}
+    recognition = null;
+  }
+  isRecognitionRunning = false;
+  isSTTRestartPending = false;
   if (recognitionRestartTimer) {
     clearTimeout(recognitionRestartTimer);
     recognitionRestartTimer = null;
   }
+  // Allow 750ms for WebRTC audio tracks to settle before capturing speech recognition
+  scheduleSTTRestart(750);
+}
+
+let lastSTTActivityTime = Date.now();
+
+function scheduleSTTRestart(delay = 800) {
+  if (recognitionRestartTimer) {
+    clearTimeout(recognitionRestartTimer);
+    recognitionRestartTimer = null;
+  }
+  isSTTRestartPending = true;
   recognitionRestartTimer = setTimeout(() => {
     isSTTRestartPending = false;
     startContinuousSpeechInterceptor();
@@ -2104,6 +2183,7 @@ function startContinuousSpeechInterceptor() {
     recognition.onstart = () => {
       isRecognitionRunning = true;
       isSTTRestartPending = false;
+      lastSTTActivityTime = Date.now();
       if (dot) {
         dot.textContent = '● Listening';
         dot.style.color = 'var(--cs-green)';
@@ -2111,6 +2191,7 @@ function startContinuousSpeechInterceptor() {
     };
 
     recognition.onresult = (event) => {
+      lastSTTActivityTime = Date.now();
       let interim = '';
       let final_ = '';
 
@@ -2186,9 +2267,24 @@ function startContinuousSpeechInterceptor() {
 function initSTTWatchdog() {
   if (watchdogInterval) clearInterval(watchdogInterval);
   watchdogInterval = setInterval(() => {
+    const isCallActive = Boolean(currentCall || (document.getElementById('callScreen') && document.getElementById('callScreen').style.display === 'block'));
+    
+    // 1. Revive if recognition dropped or failed to restart
     if (!isRecognitionRunning && !isSTTRestartPending) {
       console.log('STT Watchdog reviving recognition session...');
       scheduleSTTRestart(300);
+      return;
+    }
+
+    // 2. Zombie Session Killer: If in an active call and recognition has reported nothing for > 18s,
+    // recycle it cleanly so Android SpeechRecognizer doesn't freeze in 1h-2h continuous calls.
+    if (isCallActive && isRecognitionRunning) {
+      const idleTime = Date.now() - lastSTTActivityTime;
+      if (idleTime > 18000) {
+        console.log('[STT Watchdog] Recycling idle/zombie recognition session (' + Math.round(idleTime / 1000) + 's silent)...');
+        lastSTTActivityTime = Date.now();
+        restartSpeechEngineForCall();
+      }
     }
   }, 3500);
 }
