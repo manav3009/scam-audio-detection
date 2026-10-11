@@ -1091,12 +1091,26 @@ function initPeerWithId(peerId) {
   });
 
   myPeer.on('disconnected', () => {
+    console.warn('myPeer disconnected from signaling server. Attempting reconnect...');
     const badge = document.getElementById('statusBadge');
     if (badge) {
       badge.textContent = '● Reconnecting...';
       badge.style.color = 'var(--cs-yellow)';
     }
-    try { myPeer.reconnect(); } catch(e){}
+    try {
+      if (myPeer && !myPeer.destroyed) {
+        myPeer.reconnect();
+      } else {
+        reconnectPeer();
+      }
+    } catch(e){
+      reconnectPeer();
+    }
+  });
+
+  myPeer.on('close', () => {
+    console.warn('myPeer session closed. Rebuilding peer...');
+    reconnectPeer();
   });
 
   myPeer.on('call', (call) => {
@@ -1141,11 +1155,52 @@ function initPeerWithId(peerId) {
     if (err.type === 'unavailable-id') {
       myCurrentSlotIndex++;
       setTimeout(tryConnectNextSlot, 60);
+    } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
+      console.warn('Signaling socket error occurred. Scheduling clean reconnection in 1.5s...');
+      setTimeout(() => {
+        if (!currentCall) {
+          reconnectPeer();
+        }
+      }, 1500);
     } else if (err.type === 'peer-unavailable') {
       // Ignored candidate probe note
     }
   });
 }
+
+// 🛡️ Proactive 4-5 Hour Standby & Foreground Reconnection Watchdog
+// When the app has been in the background or screen was locked for hours,
+// immediately revive signaling & STT the millisecond the screen turns back on!
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    console.log('[LifeCycle] App returned to foreground after background / screen sleep.');
+    if (!currentCall) {
+      if (!myPeer || myPeer.destroyed || myPeer.disconnected || !myPeer.open) {
+        console.log('[LifeCycle] Reviving Peer connection after sleep...');
+        reconnectPeer();
+      }
+      if (!isRecognitionRunning && !isSTTRestartPending) {
+        console.log('[LifeCycle] Reviving speech interceptor after sleep...');
+        scheduleSTTRestart(300);
+      }
+    }
+  }
+});
+window.addEventListener('focus', () => {
+  if (!currentCall) {
+    if (!myPeer || myPeer.destroyed || myPeer.disconnected || !myPeer.open) {
+      reconnectPeer();
+    }
+    if (!isRecognitionRunning && !isSTTRestartPending) {
+      scheduleSTTRestart(300);
+    }
+  }
+});
+window.addEventListener('online', () => {
+  console.log('[LifeCycle] Network back online! Rebuilding connection...');
+  reconnectPeer();
+  scheduleSTTRestart(300);
+});
 
 let callingCandidateQueue = [];
 let callWaitingTimer = null;
@@ -1162,16 +1217,24 @@ function showHuntingToast(msg) {
   }
 }
 
-// 🔄 Active Heartbeat Ping every 10s
+// 🔄 Active Heartbeat Ping every 8s & Automatic Socket Re-connector
 setInterval(() => {
-  if (myPeer && !myPeer.destroyed && myPeer.socket) {
-    try {
-      if (myPeer.socket._socket && myPeer.socket._socket.readyState === WebSocket.OPEN) {
-        myPeer.socket._socket.send(JSON.stringify({ type: 'HEARTBEAT' }));
-      }
-    } catch(e){}
+  if (myPeer && !myPeer.destroyed) {
+    if (myPeer.disconnected) {
+      try { myPeer.reconnect(); } catch(e){}
+    } else if (myPeer.socket) {
+      try {
+        if (myPeer.socket._socket && myPeer.socket._socket.readyState === WebSocket.OPEN) {
+          myPeer.socket._socket.send(JSON.stringify({ type: 'HEARTBEAT' }));
+        } else if (myPeer.socket._socket && myPeer.socket._socket.readyState === WebSocket.CLOSED) {
+          if (!currentCall) reconnectPeer();
+        }
+      } catch(e){}
+    }
+  } else if (!currentCall) {
+    reconnectPeer();
   }
-}, 10000);
+}, 8000);
 
 let dataOutbox = [];
 let activeDataConnections = {};
