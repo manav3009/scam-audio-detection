@@ -1342,13 +1342,13 @@ function updateSpeechActivityIndicator(speaker, text) {
   }
 }
 
-// High-Sensitivity Voice Capture with Auto-Gain Boost (No Loud Shouting Required!)
+// Echo-Free Clean Voice Capture with Hardware Acoustic Echo Cancellation & Noise Suppression
 async function getCleanAudioStream() {
   const constraints = {
     audio: {
-      echoCancellation: false,  // Disabled hardware DSP gating so soft conversational voice is NOT cut off!
-      noiseSuppression: false,  // Disabled so normal natural speaking volume is captured clearly!
-      autoGainControl: true,    // Boosts soft and normal voice levels automatically!
+      echoCancellation: true,    // CRITICAL: Eliminates loudspeaker feedback echo completely!
+      noiseSuppression: true,    // CRITICAL: Filters background hissing & room hum!
+      autoGainControl: true,     // Balances voice levels smoothly!
       channelCount: 1,
       sampleRate: 48000
     },
@@ -1357,7 +1357,7 @@ async function getCleanAudioStream() {
   try {
     return await navigator.mediaDevices.getUserMedia(constraints);
   } catch(e) {
-    return await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    return await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
   }
 }
 
@@ -1690,7 +1690,7 @@ function attachRemoteAudio(remoteStream) {
     if (audioEl.srcObject !== remoteStream) {
       audioEl.srcObject = remoteStream;
     }
-    audioEl.volume = 1.0;
+    audioEl.volume = 0.85;
     audioEl.play().catch(e => console.log('Audio autoplay unlock note:', e));
   }
   document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
@@ -1885,8 +1885,8 @@ function commitSpeechUtterance(text, isDangerHint) {
   const trimmed = (text || '').trim();
   if (!trimmed) return;
   const now = Date.now();
-  // Allow repeated phrases after 1.5 seconds so "hello", "yes", etc. are never blocked
-  if (trimmed === lastCommittedUtterance && (now - lastUtteranceTime) < 1500) return;
+  // Allow repeated phrases after 500ms so words are never blocked
+  if (trimmed === lastCommittedUtterance && (now - lastUtteranceTime) < 500) return;
   lastCommittedUtterance = trimmed;
   lastUtteranceTime = now;
   processSpokenText(trimmed, true);
@@ -2013,22 +2013,27 @@ function startContinuousSpeechInterceptor() {
         }
       }
 
+      const delivered = final_.trim() || interim.trim();
+      if (delivered) {
+        updateSpeechActivityIndicator(isActualCaller ? 'User A' : 'User B', delivered);
+      }
+
       if (final_.trim()) {
         if (interimDebounceTimer) clearTimeout(interimDebounceTimer);
-        commitSpeechUtterance(final_, false);
+        commitSpeechUtterance(final_.trim(), false);
         interimSpeechBuffer = '';
       } else if (interim.trim()) {
         interimSpeechBuffer = interim.trim();
         processSpokenText(interimSpeechBuffer, false);
 
-        // Responsive debounce timer (400ms) for natural conversational flow
+        // Immediate responsive debounce timer (280ms) for real-time speech conversion
         if (interimDebounceTimer) clearTimeout(interimDebounceTimer);
         interimDebounceTimer = setTimeout(() => {
           if (interimSpeechBuffer) {
             commitSpeechUtterance(interimSpeechBuffer, false);
             interimSpeechBuffer = '';
           }
-        }, 400);
+        }, 280);
       }
     };
 
@@ -2044,7 +2049,7 @@ function startContinuousSpeechInterceptor() {
           if (currentCall && !isRecognitionRunning) {
             startContinuousSpeechInterceptor();
           }
-        }, 350);
+        }, 300);
       }
     };
 
@@ -2060,7 +2065,7 @@ function startContinuousSpeechInterceptor() {
           if (currentCall && !isRecognitionRunning) {
             startContinuousSpeechInterceptor();
           }
-        }, 200);
+        }, 150);
       }
     };
 
