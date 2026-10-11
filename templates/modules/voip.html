@@ -1047,32 +1047,8 @@ function initPeerWithId(peerId) {
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
-        { urls: 'stun:stun.cloudflare.com:3478' },
-        { urls: 'stun:stun.relay.metered.ca:80' },
-        { urls: 'stun:stun.relay.metered.ca:443' },
-        {
-          urls: 'turn:openrelay.metered.ca:80',
-          username: 'openrelay',
-          credential: 'openrelay'
-        },
-        {
-          urls: 'turn:openrelay.metered.ca:443',
-          username: 'openrelay',
-          credential: 'openrelay'
-        },
-        {
-          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-          username: 'openrelay',
-          credential: 'openrelay'
-        },
-        {
-          urls: 'turns:openrelay.metered.ca:443?transport=tcp',
-          username: 'openrelay',
-          credential: 'openrelay'
-        }
-      ],
-      iceTransportPolicy: 'all',
-      iceCandidatePoolSize: 10
+        { urls: 'stun:stun.cloudflare.com:3478' }
+      ]
     }
   });
 
@@ -1631,6 +1607,10 @@ async function acceptCall() {
   document.getElementById('incomingModal').classList.remove('active');
   if (!incomingCallObj) return;
 
+  // Immediately unlock audio playback during user touch gesture on mobile
+  const audioEl = document.getElementById('remoteAudio');
+  if (audioEl) { audioEl.play().catch(()=>{}); }
+
   isActualCaller = false;
   try {
     localMediaStream = await getCleanAudioStream();
@@ -1642,14 +1622,6 @@ async function acceptCall() {
   const callerPeerId = incomingCallObj.peer;
   incomingCallObj.answer(localMediaStream);
   setupActiveCall(incomingCallObj, callerPeerId);
-
-  // Ensure bidirectional DataChannel is connected back to caller
-  if (!dataConn) {
-    try {
-      const conn = myPeer.connect(callerPeerId, { reliable: true });
-      setupDataConnection(conn);
-    } catch(e){}
-  }
 
   incomingCallObj = null;
 }
@@ -1698,10 +1670,11 @@ function setupActiveCall(call, peerName) {
     const audioEl = document.getElementById('remoteAudio');
     if (audioEl) {
       audioEl.srcObject = remoteStream;
-      audioEl.volume = 0.85;
+      audioEl.volume = 1.0;
       audioEl.play().catch(e => console.log('Audio autoplay unlock note:', e));
     }
     document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
+    startCallTimer();
   });
 
   // 2. Underlying WebRTC RTCPeerConnection monitoring
@@ -1709,16 +1682,20 @@ function setupActiveCall(call, peerName) {
     const pc = call.peerConnection;
     pc.addEventListener('connectionstatechange', () => {
       console.log('RTCPeerConnection state:', pc.connectionState);
-      if (pc.connectionState === 'closed' && !isHuntingActive) {
+      if (pc.connectionState === 'connected') {
+        document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
+      } else if (pc.connectionState === 'closed' && !isHuntingActive) {
         console.log('PeerConnection permanently closed. Cleaning up call.');
         endCall(false);
       }
     });
     pc.addEventListener('iceconnectionstatechange', () => {
       console.log('ICE connection state:', pc.iceConnectionState);
-      if (pc.iceConnectionState === 'closed' && !isHuntingActive) {
-        console.log('ICE permanently closed. Cleaning up call.');
-        endCall(false);
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
+      } else if (pc.iceConnectionState === 'failed') {
+        console.warn('ICE failed. Attempting ICE restart.');
+        try { pc.restartIce(); } catch(e){}
       }
     });
   }
@@ -1737,7 +1714,11 @@ function setupActiveCall(call, peerName) {
     }
   });
 
-  startCallTimer();
+  if (!isActualCaller) {
+    startCallTimer();
+  } else {
+    document.getElementById('callTimer').textContent = 'Ringing...';
+  }
   
   // Ensure STT starts cleanly without mic stream contention (giving WebRTC audio 700ms to stabilize)
   setTimeout(() => {
