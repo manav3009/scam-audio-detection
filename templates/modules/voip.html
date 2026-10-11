@@ -617,7 +617,14 @@ body {
     <div class="card">
       <div class="card-title">
         <span>🎙️ Live Intercepted Speech (Both Users)</span>
-        <span id="sttStatusDot" style="color:var(--cs-green);font-size:10px;cursor:pointer;" onclick="restartSTT()" title="Tap to reconnect speech interceptor">● Listening (Both Sides)</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <select id="sttLangSelect" onchange="changeSTTLanguage(this.value)" style="background:#0f172a;border:1px solid #334155;color:#38bdf8;font-size:10px;padding:2px 6px;border-radius:6px;font-weight:700;">
+            <option value="en-IN">🇮🇳 English (India)</option>
+            <option value="hi-IN">🇮🇳 Hindi / Hinglish</option>
+            <option value="en-US">🌐 English (US)</option>
+          </select>
+          <span id="sttStatusDot" style="color:var(--cs-green);font-size:10px;cursor:pointer;" onclick="restartSTT()" title="Tap to reconnect speech interceptor">● Listening</span>
+        </div>
       </div>
       
       <!-- Live Mic Indicators for User A and User B -->
@@ -632,21 +639,22 @@ body {
         </div>
       </div>
 
-      <!-- Quick 1-Tap Intercept Phrases (Works on Any Phone / Network) -->
+      <!-- Quick 1-Tap Dual-User Intercept Phrases -->
       <div style="margin-top:8px;">
-        <div style="font-size:10px;color:#94a3b8;margin-bottom:4px;font-weight:700;">⚡ 1-Tap Quick Intercept Phrases:</div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap;">
-          <button class="btn-preset" style="padding:4px 8px;font-size:10px;background:rgba(239,68,68,0.2);color:#fca5a5;border-color:#ef4444;" onclick="injectQuickSpeech('Please share your 6 digit bank OTP immediately or account will be blocked!')">🚨 Ask OTP</button>
-          <button class="btn-preset" style="padding:4px 8px;font-size:10px;background:rgba(239,68,68,0.2);color:#fca5a5;border-color:#ef4444;" onclick="injectQuickSpeech('Your KYC is expired. Give your ATM debit card PIN and CVV right now!')">🚨 KYC / PIN</button>
-          <button class="btn-preset" style="padding:4px 8px;font-size:10px;background:rgba(16,185,129,0.2);color:#86efac;border-color:#10b981;" onclick="injectQuickSpeech('Hello, who is calling? Why are you asking for my secret OTP?')">🛡️ Who is this?</button>
-          <button class="btn-preset" style="padding:4px 8px;font-size:10px;background:rgba(16,185,129,0.2);color:#86efac;border-color:#10b981;" onclick="injectQuickSpeech('I will never share my secret password or OTP with anyone.')">🛡️ Refuse OTP</button>
+        <div style="font-size:10px;color:#94a3b8;margin-bottom:4px;font-weight:700;">⚡ 1-Tap Intercept Preset Phrases:</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+          <button class="btn-preset" style="padding:4px 8px;font-size:10px;background:rgba(239,68,68,0.2);color:#fca5a5;border-color:#ef4444;" onclick="injectExplicitUserSpeech('User A', 'Please share your 6 digit bank OTP immediately or account will be blocked!')">🚨 [User A]: Ask OTP</button>
+          <button class="btn-preset" style="padding:4px 8px;font-size:10px;background:rgba(239,68,68,0.2);color:#fca5a5;border-color:#ef4444;" onclick="injectExplicitUserSpeech('User A', 'Your KYC is expired. Give your ATM debit card PIN and CVV right now!')">🚨 [User A]: Ask PIN/CVV</button>
+          <button class="btn-preset" style="padding:4px 8px;font-size:10px;background:rgba(16,185,129,0.2);color:#86efac;border-color:#10b981;" onclick="injectExplicitUserSpeech('User B', 'Hello, who is calling? Why are you asking for my secret OTP?')">🛡️ [User B]: Who is this?</button>
+          <button class="btn-preset" style="padding:4px 8px;font-size:10px;background:rgba(16,185,129,0.2);color:#86efac;border-color:#10b981;" onclick="injectExplicitUserSpeech('User B', 'I will never share my secret password or OTP with anyone.')">🛡️ [User B]: Refuse OTP</button>
         </div>
       </div>
 
-      <!-- Custom Speech Injector Input -->
-      <div style="display:flex;gap:6px;margin-top:8px;">
-        <input id="quickSpeechInput" type="text" placeholder="Type words (e.g. Share your OTP, Hello)..." style="flex:1;background:rgba(15,23,42,0.8);border:1px solid #334155;border-radius:8px;padding:6px 10px;font-size:11px;color:#f8fafc;" onkeydown="if(event.key==='Enter') sendManualSpeechTest()" />
-        <button onclick="sendManualSpeechTest()" style="background:#0284c7;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">Send</button>
+      <!-- Custom Speech Injector Input with Dual-User Buttons -->
+      <div style="display:flex;gap:4px;margin-top:8px;">
+        <input id="quickSpeechInput" type="text" placeholder="Type words (e.g. Share OTP, Hello)..." style="flex:1;background:rgba(15,23,42,0.8);border:1px solid #334155;border-radius:8px;padding:6px 8px;font-size:11px;color:#f8fafc;" onkeydown="if(event.key==='Enter') sendManualSpeechTest('auto')" />
+        <button onclick="sendManualSpeechTest('User A')" style="background:#0284c7;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:10px;font-weight:700;cursor:pointer;" title="Send as User A (Caller)">🗣️ User A</button>
+        <button onclick="sendManualSpeechTest('User B')" style="background:#059669;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:10px;font-weight:700;cursor:pointer;" title="Send as User B (Receiver)">🗣️ User B</button>
       </div>
     </div>
 
@@ -953,10 +961,10 @@ function updateLineStatusIndicators() {
   }
 }
 
-// ── 2. Reliable Cloud PeerJS Connection with Auto-Registration & Multi-Slot ──
+// ── 2. Reliable Cloud PeerJS Connection with Auto-Registration & 8-Slot Pool ──
 let isLineBusy = false;
 let isHuntingActive = false;
-const ROOM_SLOTS = ['A', 'B', 'C', 'D'];
+const ROOM_SLOTS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 let myCurrentSlotIndex = 0;
 let myAssignedPeerId = null;
 
@@ -964,14 +972,36 @@ function getSlotPeerId(slotLetter) {
   return `cs_${currentChannel}_${slotLetter}`;
 }
 
-function reconnectPeer() {
+function cleanupPeerConnection() {
+  if (callWaitingTimer) { clearTimeout(callWaitingTimer); callWaitingTimer = null; }
+  isHuntingActive = false;
+  if (dataConn) { try { dataConn.close(); } catch(e){} dataConn = null; }
+  if (currentCall) { try { currentCall.close(); } catch(e){} currentCall = null; }
+  if (localMediaStream) {
+    try { localMediaStream.getTracks().forEach(t => t.stop()); } catch(e){}
+    localMediaStream = null;
+  }
   if (myPeer && !myPeer.destroyed) {
     try {
-      if (myPeer.socket) myPeer.socket.close();
+      if (myPeer.socket) { try { myPeer.socket.close(); } catch(e){} }
       myPeer.destroy();
     } catch(e){}
     myPeer = null;
   }
+}
+window.addEventListener('beforeunload', cleanupPeerConnection);
+window.addEventListener('pagehide', cleanupPeerConnection);
+window.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && !currentCall) {
+    cleanupPeerConnection();
+  } else if (document.visibilityState === 'visible' && (!myPeer || myPeer.destroyed)) {
+    reconnectPeer();
+  }
+});
+window.cleanupPeerConnection = cleanupPeerConnection;
+
+function reconnectPeer() {
+  cleanupPeerConnection();
 
   const badge = document.getElementById('statusBadge');
   if (badge) {
@@ -989,13 +1019,24 @@ function tryConnectNextSlot() {
     const slotLetter = ROOM_SLOTS[myCurrentSlotIndex];
     initPeerWithId(getSlotPeerId(slotLetter));
   } else {
-    // If all 4 static slots are temporarily ghosted on server, connect with random session slot
-    const randomSlot = `cs_${currentChannel}_x${Math.floor(Math.random() * 900 + 100)}`;
-    initPeerWithId(randomSlot);
+    // If all static slots in pool are occupied or releasing, cycle back to slot A after brief delay
+    myCurrentSlotIndex = 0;
+    setTimeout(() => {
+      tryConnectNextSlot();
+    }, 600);
   }
 }
 
 function initPeerWithId(peerId) {
+  // Always destroy previous instance before creating a new one
+  if (myPeer && !myPeer.destroyed) {
+    try {
+      if (myPeer.socket) myPeer.socket.close();
+      myPeer.destroy();
+    } catch(e){}
+    myPeer = null;
+  }
+
   myAssignedPeerId = peerId;
   myPeer = new Peer(peerId, {
     debug: 1,
@@ -1088,7 +1129,7 @@ function initPeerWithId(peerId) {
     if (err.type === 'unavailable-id') {
       // Slot taken or ghost-locked: seamlessly try next room slot
       myCurrentSlotIndex++;
-      tryConnectNextSlot();
+      setTimeout(tryConnectNextSlot, 80);
     } else if (err.type === 'peer-unavailable') {
       handleCandidatePeerUnavailable();
     }
@@ -1109,10 +1150,10 @@ function handleCandidatePeerUnavailable() {
   if (!isHuntingActive) return;
   if (callingCandidateQueue.length > 0) {
     const nextTarget = callingCandidateQueue.shift();
-    showHuntingToast(`Checking partner (${nextTarget.split('_').pop()})...`);
+    showHuntingToast(`Checking partner slot (${nextTarget.split('_').pop()})...`);
     setTimeout(() => {
       if (isHuntingActive) executeStartCall(nextTarget);
-    }, 350);
+    }, 250);
   } else {
     // Partner slots were checked. Companion might still be opening the line/hub.
     const disp = getChannelDisplayName(currentChannel);
@@ -1125,7 +1166,7 @@ function handleCandidatePeerUnavailable() {
           executeStartCall(callingCandidateQueue.shift());
         }
       }
-    }, 2500);
+    }, 2000);
   }
 }
 
@@ -1308,33 +1349,53 @@ function updateSpeechActivityIndicator(speaker, text) {
   }
 }
 
-// Clean audio stream with Echo Cancellation to eliminate feedback screeching
+// Clean audio stream with Echo Cancellation and Auto Gain (prevents gating out normal conversational volume)
 async function getCleanAudioStream() {
-  return await navigator.mediaDevices.getUserMedia({
+  const constraints = {
     audio: {
       echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true
+      noiseSuppression: false, // CRITICAL: Disabled so normal conversational speech is NOT cut off!
+      autoGainControl: true     // CRITICAL: Boosts normal voice sensitivity!
     },
     video: false
-  });
+  };
+  try {
+    return await navigator.mediaDevices.getUserMedia(constraints);
+  } catch(e) {
+    return await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  }
 }
 
 async function executeStartCall(target) {
+  if (!isHuntingActive) return;
+  showHuntingToast(`Calling companion (${target.split('_').pop()})...`);
+
   try {
-    localMediaStream = await getCleanAudioStream();
+    if (!localMediaStream) {
+      localMediaStream = await getCleanAudioStream();
+    }
   } catch(e) {
     alert('Microphone permission required for VoIP calls.');
+    isHuntingActive = false;
     return;
   }
 
-  // Connect bidirectional DataChannel for fraud alert sync
-  const conn = myPeer.connect(target, { reliable: true });
-  setupDataConnection(conn);
+  // Probe companion DataChannel
+  try {
+    const conn = myPeer.connect(target, { reliable: true });
+    setupDataConnection(conn);
+  } catch(e){}
 
   // Call the peer with audio
-  const call = myPeer.call(target, localMediaStream);
-  setupActiveCall(call, target);
+  try {
+    const call = myPeer.call(target, localMediaStream);
+    if (call) {
+      setupActiveCall(call, target);
+    }
+  } catch(e) {
+    console.warn("Peer call exception:", e);
+    handleCandidatePeerUnavailable();
+  }
 }
 
 // ── 1930 Cybercrime Helpers ────────────────────────────────────────────────
@@ -1627,28 +1688,30 @@ function setupActiveCall(call, peerName) {
 
   // 1. Audio stream setup
   call.on('stream', (remoteStream) => {
+    isHuntingActive = false;
+    if (callWaitingTimer) { clearTimeout(callWaitingTimer); callWaitingTimer = null; }
     const audioEl = document.getElementById('remoteAudio');
     if (audioEl) {
       audioEl.srcObject = remoteStream;
-      audioEl.volume = 0.75; // Balanced volume to prevent acoustic feedback loop
+      audioEl.volume = 0.85;
       audioEl.play().catch(e => console.log('Audio autoplay unlock note:', e));
     }
     document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
   });
 
-  // 2. Underlying WebRTC RTCPeerConnection monitoring (DO NOT hang up on transient 'disconnected')
+  // 2. Underlying WebRTC RTCPeerConnection monitoring
   if (call.peerConnection) {
     const pc = call.peerConnection;
     pc.addEventListener('connectionstatechange', () => {
       console.log('RTCPeerConnection state:', pc.connectionState);
-      if (pc.connectionState === 'closed') {
+      if (pc.connectionState === 'closed' && !isHuntingActive) {
         console.log('PeerConnection permanently closed. Cleaning up call.');
         endCall(false);
       }
     });
     pc.addEventListener('iceconnectionstatechange', () => {
       console.log('ICE connection state:', pc.iceConnectionState);
-      if (pc.iceConnectionState === 'closed') {
+      if (pc.iceConnectionState === 'closed' && !isHuntingActive) {
         console.log('ICE permanently closed. Cleaning up call.');
         endCall(false);
       }
@@ -1657,11 +1720,16 @@ function setupActiveCall(call, peerName) {
 
   // 3. PeerJS call close & error events
   call.on('close', () => {
-    console.log('PeerJS call closed. Hanging up.');
-    endCall(false);
+    console.log('PeerJS call closed.');
+    if (!isHuntingActive) {
+      endCall(false);
+    }
   });
   call.on('error', (e) => {
     console.warn('PeerJS call non-fatal error:', e);
+    if (isHuntingActive) {
+      handleCandidatePeerUnavailable();
+    }
   });
 
   startCallTimer();
@@ -1767,6 +1835,12 @@ function commitSpeechUtterance(text, isDangerHint) {
   processSpokenText(trimmed, true);
 }
 
+let currentSTTLang = 'en-IN';
+function changeSTTLanguage(lang) {
+  currentSTTLang = lang || 'en-IN';
+  restartSTT();
+}
+
 function restartSTT() {
   if (recognition) {
     try { isRecognitionRunning = false; recognition.abort(); } catch(e){}
@@ -1775,18 +1849,66 @@ function restartSTT() {
   startContinuousSpeechInterceptor();
   const dot = document.getElementById('sttStatusDot');
   if (dot) {
-    dot.textContent = '● Reconnecting STT...';
+    dot.textContent = '● Connecting STT...';
     dot.style.color = 'var(--cs-yellow)';
   }
 }
 
-function sendManualSpeechTest() {
+function injectExplicitUserSpeech(targetSpeaker, text) {
+  if (!text || !text.trim()) return;
+  const clean = text.trim();
+  const normalized = normalizeSpokenText(clean);
+  let totalScore = 0;
+  let matchedList = [];
+  for (const [pattern, weight] of Object.entries(FRAUD_VOCAB)) {
+    if (normalized.includes(pattern)) {
+      totalScore += weight * 20;
+      matchedList.push(pattern);
+      detectedIndicators.add(pattern);
+    }
+  }
+  const isDanger = Math.min(Math.round(totalScore), 100) >= 35;
+
+  // Append locally with explicit target speaker label
+  appendTranscript(targetSpeaker, clean, isDanger);
+
+  // Send over DataChannel to companion phone
+  sendDataToPeer({
+    type: 'TRANSCRIPT',
+    text: clean,
+    speaker: targetSpeaker,
+    isDanger: isDanger
+  });
+
+  updateSpeechActivityIndicator(targetSpeaker, clean);
+
+  if (targetSpeaker === 'User A') {
+    if (isDanger) {
+      if (isActualCaller) {
+        showStealthNotice(Math.min(Math.round(totalScore), 100), matchedList);
+      } else {
+        triggerVictimAlert(Math.min(Math.round(totalScore), 100), matchedList, `🚨 FRAUD ALERT: Caller (User A) is asking for sensitive credentials!`);
+      }
+    }
+  } else {
+    if (!isActualCaller) {
+      // Victim device speaking
+    }
+  }
+}
+
+function sendManualSpeechTest(targetRole) {
   const inp = document.getElementById('quickSpeechInput');
   if (!inp) return;
   const val = inp.value.trim();
   if (!val) return;
   inp.value = '';
-  processSpokenText(val, true);
+
+  let speaker = targetRole;
+  if (!speaker || speaker === 'auto') {
+    speaker = isActualCaller ? 'User A' : 'User B';
+  }
+  injectExplicitUserSpeech(speaker, val);
 }
 
 function startContinuousSpeechInterceptor() {
@@ -1808,7 +1930,7 @@ function startContinuousSpeechInterceptor() {
       recognition = null;
     }
     recognition = new SR();
-    recognition.lang = 'en-IN';
+    recognition.lang = currentSTTLang || 'en-IN';
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
@@ -1816,7 +1938,7 @@ function startContinuousSpeechInterceptor() {
     recognition.onstart = () => {
       isRecognitionRunning = true;
       if (dot) {
-        dot.textContent = '● Listening (Both Sides)';
+        dot.textContent = '● Listening';
         dot.style.color = 'var(--cs-green)';
       }
     };
@@ -1840,17 +1962,16 @@ function startContinuousSpeechInterceptor() {
         interimSpeechBuffer = '';
       } else if (interim.trim()) {
         interimSpeechBuffer = interim.trim();
-        // Live interim analysis for immediate threat meter score update
         processSpokenText(interimSpeechBuffer, false);
 
-        // Debounce timer: If speaker pauses for 800ms without final result, commit utterance automatically
+        // Responsive debounce timer (400ms) for natural conversational flow
         if (interimDebounceTimer) clearTimeout(interimDebounceTimer);
         interimDebounceTimer = setTimeout(() => {
           if (interimSpeechBuffer) {
             commitSpeechUtterance(interimSpeechBuffer, false);
             interimSpeechBuffer = '';
           }
-        }, 800);
+        }, 400);
       }
     };
 
@@ -1866,12 +1987,11 @@ function startContinuousSpeechInterceptor() {
           if (currentCall && !isRecognitionRunning) {
             startContinuousSpeechInterceptor();
           }
-        }, 400);
+        }, 350);
       }
     };
 
     recognition.onend = () => {
-      // Commit any uncommitted interim speech before restart
       if (interimSpeechBuffer) {
         commitSpeechUtterance(interimSpeechBuffer, false);
         interimSpeechBuffer = '';
@@ -1883,7 +2003,7 @@ function startContinuousSpeechInterceptor() {
           if (currentCall && !isRecognitionRunning) {
             startContinuousSpeechInterceptor();
           }
-        }, 250);
+        }, 200);
       }
     };
 
@@ -2162,7 +2282,7 @@ function appendTranscript(speakerOrText, textOrDanger, isDangerArg) {
     speaker = isActualCaller ? 'User A' : 'User B';
   } else if (typeof textOrDanger === 'string') {
     // 3-arg call: (speaker, text, isDanger)
-    speaker = speakerOrText || (isActualCaller ? 'User A' : 'User B');
+    speaker = String(speakerOrText || (isActualCaller ? 'User A' : 'User B'));
     text = textOrDanger;
     isDanger = Boolean(isDangerArg);
   } else {
@@ -2181,20 +2301,30 @@ function appendTranscript(speakerOrText, textOrDanger, isDangerArg) {
 
   // Normalize speaker name: User A is caller, User B is receiver
   let cleanSpeaker = 'User A';
-  if (speaker.includes('User B')) cleanSpeaker = 'User B';
-  else if (speaker.includes('User A')) cleanSpeaker = 'User A';
-  else cleanSpeaker = speaker;
+  if (speaker.includes('User B') || speaker.includes('Receiver')) {
+    cleanSpeaker = 'User B';
+  } else if (speaker.includes('User A') || speaker.includes('Caller')) {
+    cleanSpeaker = 'User A';
+  } else {
+    cleanSpeaker = isActualCaller ? 'User A' : 'User B';
+  }
 
   const isUserA = cleanSpeaker === 'User A';
+  const isMe = (isActualCaller && isUserA) || (!isActualCaller && !isUserA);
   const speakerColor = isUserA ? '#38bdf8' : '#00ff87';
   const speakerRoleTag = isUserA ? '(Caller)' : '(Receiver)';
+  const deviceTag = isMe ? '· You' : '· Companion';
 
   const d = document.createElement('div');
   d.className = `transcript-bubble ${isDanger ? 'danger' : ''}`;
 
   d.innerHTML = `
     <div class="transcript-speaker" style="display:flex;justify-content:space-between;align-items:center;">
-      <span><b style="color:${speakerColor};font-size:12px;">${cleanSpeaker}</b> <span style="font-size:10px;color:#94a3b8">${speakerRoleTag}</span></span>
+      <span>
+        <b style="color:${speakerColor};font-size:12px;">${cleanSpeaker}</b> 
+        <span style="font-size:10px;color:#94a3b8">${speakerRoleTag}</span> 
+        <span style="font-size:10px;color:#64748b;font-weight:600">${deviceTag}</span>
+      </span>
       <span style="font-size:10px;color:#64748b;">${new Date().toLocaleTimeString()}</span>
     </div>
     <div style="margin-top:3px;font-size:13px;line-height:1.45;color:#f8fafc;">
