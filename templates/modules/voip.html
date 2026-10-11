@@ -805,6 +805,8 @@ let callTimerInterval = null;
 let peakRisk = 0;
 let detectedIndicators = new Set();
 let isActualCaller = false;
+let myCallRole = 'NEUTRAL'; // 'CALLER' (User A) or 'RECEIVER' (User B) or 'NEUTRAL'
+let recentRemoteTranscripts = []; // Acoustic Echo Loopback Buffer to suppress speakerphone bleed-through
 
 // ── Anti-Irritation Audio Settings ─────────────────────────────────────────
 let isSoundAlertEnabled = localStorage.getItem('cs_sound_alert') !== 'false';
@@ -987,6 +989,7 @@ function cleanupPeerConnection() {
   if (callWaitingTimer) { clearTimeout(callWaitingTimer); callWaitingTimer = null; }
   isHuntingActive = false;
   isActualCaller = false;
+  myCallRole = 'NEUTRAL';
   if (dataConn) { try { dataConn.close(); } catch(e){} dataConn = null; }
   if (currentCall) { try { currentCall.close(); } catch(e){} currentCall = null; }
   if (localMediaStream) {
@@ -1112,6 +1115,7 @@ function initPeerWithId(peerId) {
 
     // Receiving phone is GUARANTEED to be receiver (User B)
     isActualCaller = false;
+    myCallRole = 'RECEIVER';
     incomingCallObj = call;
     const disp = getChannelDisplayName(currentChannel);
     document.getElementById('incomingCallerId').textContent = `${disp} Incoming Call`;
@@ -1284,10 +1288,19 @@ function setupDataConnection(conn) {
         triggerVictimAlert(data.score || 95, data.keywords || ['Sensitive Credentials'], `🚨 FRAUD ALERT: Suspect caller is asking for sensitive OTP / Banking credentials!`);
       }
     } else if (data.type === 'TRANSCRIPT') {
-      // Correct remote speaker attribution:
-      // If this phone is Caller (User A), the remote speaker is User B!
-      // If this phone is Receiver (User B), the remote speaker is User A!
-      const remoteSpeaker = data.speaker || (isActualCaller ? 'User B' : 'User A');
+      // 1. Record in acoustic loopback buffer so our mic doesn't echo remote voice back as our own
+      recordRemoteTranscript(data.text);
+
+      // 2. Deterministic peer speaker attribution based on explicit packet metadata
+      let remoteSpeaker = 'User B';
+      if (data.senderRole === 'CALLER' || data.speaker === 'User A') {
+        remoteSpeaker = 'User A';
+      } else if (data.senderRole === 'RECEIVER' || data.speaker === 'User B') {
+        remoteSpeaker = 'User B';
+      } else {
+        remoteSpeaker = (myCallRole === 'CALLER') ? 'User B' : 'User A';
+      }
+
       appendTranscript(remoteSpeaker, data.text, data.isDanger);
       if (data.text) {
         processRemoteSpokenText(data.text);
@@ -1300,6 +1313,7 @@ function setupDataConnection(conn) {
 let activeOutgoingCalls = [];
 
 function triggerMainCall() {
+  myCallRole = 'CALLER';
   isActualCaller = true;
   isHuntingActive = true;
   executeStartCall();
@@ -1315,6 +1329,7 @@ window.directCallNumber = function(targetNumber) {
   let clean = String(targetNumber).toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
   if (!clean) clean = '101';
   setChannel(clean);
+  myCallRole = 'CALLER';
   isActualCaller = true;
   isHuntingActive = true;
   executeStartCall();
@@ -1346,18 +1361,30 @@ function updateSpeechActivityIndicator(speaker, text) {
 async function getCleanAudioStream() {
   const constraints = {
     audio: {
-      echoCancellation: true,    // CRITICAL: Eliminates loudspeaker feedback echo completely!
-      noiseSuppression: true,    // CRITICAL: Filters background hissing & room hum!
-      autoGainControl: true,     // Balances voice levels smoothly!
+      echoCancellation: { ideal: true },
+      noiseSuppression: { ideal: true },
+      autoGainControl: { ideal: true },
       channelCount: 1,
-      sampleRate: 48000
+      sampleRate: 48000,
+      googEchoCancellation: true,
+      googAutoGainControl: true,
+      googNoiseSuppression: true,
+      googHighpassFilter: true,
+      googTypingNoiseDetection: false
     },
     video: false
   };
   try {
     return await navigator.mediaDevices.getUserMedia(constraints);
   } catch(e) {
-    return await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: false
+      });
+    } catch(err) {
+      return await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    }
   }
 }
 
@@ -1629,6 +1656,7 @@ async function acceptCall() {
 
   // GUARANTEED: The answering phone is ALWAYS User B (Receiver)
   isActualCaller = false;
+  myCallRole = 'RECEIVER';
   try {
     if (!localMediaStream) {
       localMediaStream = await getCleanAudioStream();
@@ -1690,7 +1718,7 @@ function attachRemoteAudio(remoteStream) {
     if (audioEl.srcObject !== remoteStream) {
       audioEl.srcObject = remoteStream;
     }
-    audioEl.volume = 0.85;
+    audioEl.volume = 0.75; // Clean balanced level preventing mic bleed
     audioEl.play().catch(e => console.log('Audio autoplay unlock note:', e));
   }
   document.getElementById('callConnectionStatus').textContent = '🛡️ Live Clear Voice · AI Interception Active';
@@ -1702,10 +1730,11 @@ function setupActiveCall(call, peerName) {
   document.getElementById('lobbyScreen').style.display = 'none';
   document.getElementById('callScreen').style.display = 'block';
   
-  const myUserLabel = isActualCaller ? 'User A (Caller)' : 'User B (Receiver)';
-  const peerDisplay = isActualCaller ? 'Connected to User B' : 'Connected to User A';
+  const isCallerDevice = (myCallRole === 'CALLER' || isActualCaller);
+  const myUserLabel = isCallerDevice ? 'User A (Caller)' : 'User B (Receiver)';
+  const peerDisplay = isCallerDevice ? 'Connected to User B (Receiver)' : 'Connected to User A (Caller)';
   document.getElementById('callPeerName').textContent = `Line ${currentChannel} · ${myUserLabel}`;
-  document.getElementById('callConnectionStatus').textContent = isActualCaller ? '📞 Ringing companion...' : `🛡️ Live Interception · ${peerDisplay}`;
+  document.getElementById('callConnectionStatus').textContent = isCallerDevice ? '📞 Ringing companion...' : `🛡️ Live Interception · ${peerDisplay}`;
 
   autoDetectedRole = 'NEUTRAL';
   hasSoundedAlertInCall = false;
@@ -1796,6 +1825,7 @@ function endCall(notifyPeer = true) {
 
   // CRITICAL: Guaranteed reset of caller and hunting state
   isActualCaller = false;
+  myCallRole = 'NEUTRAL';
   isHuntingActive = false;
   autoDetectedRole = 'NEUTRAL';
   hasSoundedAlertInCall = false;
@@ -1824,6 +1854,8 @@ function endCall(notifyPeer = true) {
   isRecognitionRunning = false;
   if (recognition) { try { recognition.abort(); } catch(e){} recognition = null; }
   if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
+  // Revive continuous STT cleanly for lobby preview
+  scheduleSTTRestart(600);
 
   // 3. Gracefully tear down PeerJS connection objects and refresh Peer instance
   setTimeout(() => {
@@ -1873,19 +1905,73 @@ function toggleMute() {
   btn.classList.toggle('active', isMuted);
 }
 
-// ── 7. Speech-to-Text Interceptor & Normalizer (Continuous Bidirectional) ──
+// ── 7. Speech-to-Text Interceptor & Normalizer (Continuous Bidirectional Engine) ──
 let isRecognitionRunning = false;
+let isSTTRestartPending = false;
 let recognitionRestartTimer = null;
+let watchdogInterval = null;
 let interimSpeechBuffer = '';
 let interimDebounceTimer = null;
 let lastCommittedUtterance = '';
 let lastUtteranceTime = 0;
 
+// ── Acoustic Echo Loopback Buffer & Suppressor ──
+function recordRemoteTranscript(text) {
+  if (!text || !text.trim()) return;
+  recentRemoteTranscripts.push({
+    text: text.trim().toLowerCase(),
+    time: Date.now()
+  });
+  if (recentRemoteTranscripts.length > 15) {
+    recentRemoteTranscripts.shift();
+  }
+}
+
+function isAcousticEcho(localText) {
+  if (!localText || !localText.trim()) return false;
+  const now = Date.now();
+  // Filter out remote transcripts older than 3.5 seconds
+  recentRemoteTranscripts = recentRemoteTranscripts.filter(item => (now - item.time) < 3500);
+  if (recentRemoteTranscripts.length === 0) return false;
+
+  const normLocal = normalizeSpokenText(localText).trim();
+  if (!normLocal) return false;
+  const localWords = normLocal.split(/\s+/).filter(w => w.length > 1);
+  if (localWords.length === 0) return false;
+
+  for (const item of recentRemoteTranscripts) {
+    const normRemote = normalizeSpokenText(item.text).trim();
+    // 1. Direct or substring containment
+    if (normRemote.includes(normLocal) || normLocal.includes(normRemote)) {
+      return true;
+    }
+    // 2. High word-overlap similarity (>= 50% matching significant words)
+    const remoteWordSet = new Set(normRemote.split(/\s+/).filter(w => w.length > 1));
+    if (remoteWordSet.size > 0) {
+      let matchCount = 0;
+      for (const w of localWords) {
+        if (remoteWordSet.has(w)) matchCount++;
+      }
+      if ((matchCount / localWords.length) >= 0.5) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function commitSpeechUtterance(text, isDangerHint) {
   const trimmed = (text || '').trim();
-  if (!trimmed) return;
+  if (!trimmed || trimmed.length < 2) return;
+
+  // 1. Filter out speakerphone acoustic loopback
+  if (isAcousticEcho(trimmed)) {
+    console.log('[Echo Loopback Filter] Suppressed loopback of peer speech:', trimmed);
+    return;
+  }
+
   const now = Date.now();
-  // Allow repeated phrases after 500ms so words are never blocked
+  // 2. Suppress rapid duplicate bursts within 500ms
   if (trimmed === lastCommittedUtterance && (now - lastUtteranceTime) < 500) return;
   lastCommittedUtterance = trimmed;
   lastUtteranceTime = now;
@@ -1900,15 +1986,35 @@ function changeSTTLanguage(lang) {
 
 function restartSTT() {
   if (recognition) {
-    try { isRecognitionRunning = false; recognition.abort(); } catch(e){}
+    try {
+      isRecognitionRunning = false;
+      recognition.onstart = null;
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      recognition.abort();
+    } catch(e){}
     recognition = null;
   }
-  startContinuousSpeechInterceptor();
+  scheduleSTTRestart(300);
   const dot = document.getElementById('sttStatusDot');
   if (dot) {
     dot.textContent = '● Connecting STT...';
     dot.style.color = 'var(--cs-yellow)';
   }
+}
+
+function scheduleSTTRestart(delay = 800) {
+  if (isSTTRestartPending) return;
+  isSTTRestartPending = true;
+  if (recognitionRestartTimer) {
+    clearTimeout(recognitionRestartTimer);
+    recognitionRestartTimer = null;
+  }
+  recognitionRestartTimer = setTimeout(() => {
+    isSTTRestartPending = false;
+    startContinuousSpeechInterceptor();
+  }, Math.max(delay, 300));
 }
 
 function injectExplicitUserSpeech(targetSpeaker, text) {
@@ -1934,6 +2040,7 @@ function injectExplicitUserSpeech(targetSpeaker, text) {
     type: 'TRANSCRIPT',
     text: clean,
     speaker: targetSpeaker,
+    senderRole: (targetSpeaker === 'User A') ? 'CALLER' : 'RECEIVER',
     isDanger: isDanger
   });
 
@@ -1941,15 +2048,11 @@ function injectExplicitUserSpeech(targetSpeaker, text) {
 
   if (targetSpeaker === 'User A') {
     if (isDanger) {
-      if (isActualCaller) {
+      if (myCallRole === 'CALLER' || isActualCaller) {
         showStealthNotice(Math.min(Math.round(totalScore), 100), matchedList);
       } else {
         triggerVictimAlert(Math.min(Math.round(totalScore), 100), matchedList, `🚨 FRAUD ALERT: Caller (User A) is asking for sensitive credentials!`);
       }
-    }
-  } else {
-    if (!isActualCaller) {
-      // Victim device speaking
     }
   }
 }
@@ -1963,7 +2066,7 @@ function sendManualSpeechTest(targetRole) {
 
   let speaker = targetRole;
   if (!speaker || speaker === 'auto') {
-    speaker = isActualCaller ? 'User A' : 'User B';
+    speaker = (myCallRole === 'CALLER' || isActualCaller) ? 'User A' : 'User B';
   }
   injectExplicitUserSpeech(speaker, val);
 }
@@ -1976,16 +2079,22 @@ function startContinuousSpeechInterceptor() {
     return;
   }
 
-  if (recognitionRestartTimer) {
-    clearTimeout(recognitionRestartTimer);
-    recognitionRestartTimer = null;
+  if (isRecognitionRunning) {
+    return;
   }
 
   try {
     if (recognition) {
-      try { isRecognitionRunning = false; recognition.abort(); } catch(e){}
+      try {
+        recognition.onstart = null;
+        recognition.onresult = null;
+        recognition.onerror = null;
+        recognition.onend = null;
+        recognition.abort();
+      } catch(e){}
       recognition = null;
     }
+
     recognition = new SR();
     recognition.lang = currentSTTLang || 'en-IN';
     recognition.continuous = true;
@@ -1994,6 +2103,7 @@ function startContinuousSpeechInterceptor() {
 
     recognition.onstart = () => {
       isRecognitionRunning = true;
+      isSTTRestartPending = false;
       if (dot) {
         dot.textContent = '● Listening';
         dot.style.color = 'var(--cs-green)';
@@ -2013,27 +2123,28 @@ function startContinuousSpeechInterceptor() {
         }
       }
 
+      const activeSpeaker = (myCallRole === 'CALLER' || isActualCaller) ? 'User A' : 'User B';
       const delivered = final_.trim() || interim.trim();
       if (delivered) {
-        updateSpeechActivityIndicator(isActualCaller ? 'User A' : 'User B', delivered);
+        updateSpeechActivityIndicator(activeSpeaker, delivered);
       }
 
       if (final_.trim()) {
         if (interimDebounceTimer) clearTimeout(interimDebounceTimer);
+        interimDebounceTimer = null;
         commitSpeechUtterance(final_.trim(), false);
         interimSpeechBuffer = '';
       } else if (interim.trim()) {
         interimSpeechBuffer = interim.trim();
         processSpokenText(interimSpeechBuffer, false);
 
-        // Immediate responsive debounce timer (280ms) for real-time speech conversion
         if (interimDebounceTimer) clearTimeout(interimDebounceTimer);
         interimDebounceTimer = setTimeout(() => {
-          if (interimSpeechBuffer) {
+          if (interimSpeechBuffer && interimSpeechBuffer.trim().length >= 2) {
             commitSpeechUtterance(interimSpeechBuffer, false);
             interimSpeechBuffer = '';
           }
-        }, 280);
+        }, 450);
       }
     };
 
@@ -2043,48 +2154,43 @@ function startContinuousSpeechInterceptor() {
       if (dot && e.error !== 'no-speech') {
         dot.textContent = `● STT: ${e.error}`;
       }
-      if (currentCall) {
-        if (recognitionRestartTimer) clearTimeout(recognitionRestartTimer);
-        recognitionRestartTimer = setTimeout(() => {
-          if (currentCall && !isRecognitionRunning) {
-            startContinuousSpeechInterceptor();
-          }
-        }, 300);
-      }
+      // Re-schedule with safe backoff so Android hardware frees the microphone handle
+      const delay = (e.error === 'no-speech') ? 450 : 850;
+      scheduleSTTRestart(delay);
     };
 
     recognition.onend = () => {
-      if (interimSpeechBuffer) {
+      if (interimSpeechBuffer && interimSpeechBuffer.trim().length >= 2) {
         commitSpeechUtterance(interimSpeechBuffer, false);
         interimSpeechBuffer = '';
       }
       isRecognitionRunning = false;
-      if (currentCall) {
-        if (recognitionRestartTimer) clearTimeout(recognitionRestartTimer);
-        recognitionRestartTimer = setTimeout(() => {
-          if (currentCall && !isRecognitionRunning) {
-            startContinuousSpeechInterceptor();
-          }
-        }, 150);
-      }
+      // Re-schedule with safe 750ms backoff
+      scheduleSTTRestart(750);
     };
 
     try {
       recognition.start();
     } catch(e) {
-      console.warn("Speech recognition start warning:", e);
-      if (currentCall) {
-        if (recognitionRestartTimer) clearTimeout(recognitionRestartTimer);
-        recognitionRestartTimer = setTimeout(() => {
-          if (currentCall && !isRecognitionRunning) {
-            try { recognition.start(); } catch(err){}
-          }
-        }, 500);
-      }
+      isRecognitionRunning = false;
+      console.warn("Speech recognition start note:", e);
+      scheduleSTTRestart(950);
     }
   } catch(e) {
+    isRecognitionRunning = false;
     console.warn("Speech interceptor init note:", e);
+    scheduleSTTRestart(1100);
   }
+}
+
+function initSTTWatchdog() {
+  if (watchdogInterval) clearInterval(watchdogInterval);
+  watchdogInterval = setInterval(() => {
+    if (!isRecognitionRunning && !isSTTRestartPending) {
+      console.log('STT Watchdog reviving recognition session...');
+      scheduleSTTRestart(300);
+    }
+  }, 3500);
 }
 
 function normalizeSpokenText(text) {
@@ -2151,7 +2257,8 @@ function processSpokenText(rawText, isFinal) {
   updateVoiceBiometrics(finalReportedScore, rawText, isOfficialContext);
 
   // Explicit User Labels: User A = Caller, User B = Receiver
-  const speakerLabel = isActualCaller ? 'User A' : 'User B';
+  const isCallerRole = (myCallRole === 'CALLER' || isActualCaller);
+  const speakerLabel = isCallerRole ? 'User A' : 'User B';
 
   if (isFinal) {
     appendTranscript(speakerLabel, rawText, finalReportedScore >= 35);
@@ -2159,6 +2266,7 @@ function processSpokenText(rawText, isFinal) {
       type: 'TRANSCRIPT',
       text: rawText,
       speaker: speakerLabel,
+      senderRole: isCallerRole ? 'CALLER' : 'RECEIVER',
       isDanger: finalReportedScore >= 35
     });
     updateSpeechActivityIndicator(speakerLabel, rawText);
@@ -2171,7 +2279,7 @@ function processSpokenText(rawText, isFinal) {
     const isCallActive = Boolean(currentCall || (document.getElementById('callScreen') && document.getElementById('callScreen').style.display === 'block'));
 
     if (isCallActive) {
-      if (!isActualCaller) {
+      if (!isCallerRole) {
         // ── DEVICE 2: RECEIVER OF THE CALL (USER B) ──
         // The person who received/answered the call is 100% THE TARGETED VICTIM!
         autoDetectedRole = 'VICTIM';
@@ -2225,11 +2333,12 @@ function processSpokenText(rawText, isFinal) {
 // ── Autonomous Remote Speech Analysis Engine ──
 function processRemoteSpokenText(remoteText) {
   if (!remoteText) return;
-  updateSpeechActivityIndicator(isActualCaller ? 'User B' : 'User A', remoteText);
+  const remotePeerLabel = (myCallRole === 'CALLER' || isActualCaller) ? 'User B' : 'User A';
+  updateSpeechActivityIndicator(remotePeerLabel, remoteText);
 
   // If this device is the CALLER (User A), it is the suspect/scammer!
   // User A MUST NEVER BECOME THE VICTIM from remote transcripts!
-  if (isActualCaller || autoDetectedRole === 'SCAMMER') return;
+  if (myCallRole === 'CALLER' || isActualCaller || autoDetectedRole === 'SCAMMER') return;
 
   const normalized = normalizeSpokenText(remoteText);
   let totalScore = 0;
@@ -2260,7 +2369,7 @@ function processRemoteSpokenText(remoteText) {
 
 function showStealthNotice(score, keywords) {
   // If this device is the RECEIVER (User B), it must NEVER be silent in stealth mode!
-  if (!isActualCaller && (currentCall || (document.getElementById('callScreen') && document.getElementById('callScreen').style.display === 'block'))) {
+  if ((myCallRole === 'RECEIVER' || !isActualCaller) && (currentCall || (document.getElementById('callScreen') && document.getElementById('callScreen').style.display === 'block'))) {
     triggerVictimAlert(score, keywords, "🚨 FRAUD ALERT: Caller is asking for sensitive credentials!");
     return;
   }
@@ -2282,7 +2391,7 @@ function showStealthNotice(score, keywords) {
 function triggerVictimAlert(score, keywords, msg) {
   // If this device is the CALLER (User A), it is the suspect/scammer!
   // CALLER NEVER ALERTS OR VIBRATES!
-  if (isActualCaller) {
+  if (myCallRole === 'CALLER' || isActualCaller) {
     showStealthNotice(score, keywords);
     return;
   }
@@ -2341,7 +2450,8 @@ function updateRiskDisplay(score, level, category) {
 }
 
 function appendTranscript(speakerOrText, textOrDanger, isDangerArg) {
-  let speaker = isActualCaller ? 'User A' : 'User B';
+  const isCallerDevice = (myCallRole === 'CALLER' || isActualCaller);
+  let speaker = isCallerDevice ? 'User A' : 'User B';
   let text = '';
   let isDanger = false;
 
@@ -2349,10 +2459,10 @@ function appendTranscript(speakerOrText, textOrDanger, isDangerArg) {
     // 2-arg call: (text, isDanger)
     text = String(speakerOrText);
     isDanger = textOrDanger;
-    speaker = isActualCaller ? 'User A' : 'User B';
+    speaker = isCallerDevice ? 'User A' : 'User B';
   } else if (typeof textOrDanger === 'string') {
     // 3-arg call: (speaker, text, isDanger)
-    speaker = String(speakerOrText || (isActualCaller ? 'User A' : 'User B'));
+    speaker = String(speakerOrText || (isCallerDevice ? 'User A' : 'User B'));
     text = textOrDanger;
     isDanger = Boolean(isDangerArg);
   } else {
@@ -2376,11 +2486,11 @@ function appendTranscript(speakerOrText, textOrDanger, isDangerArg) {
   } else if (speaker.includes('User A') || speaker.includes('Caller')) {
     cleanSpeaker = 'User A';
   } else {
-    cleanSpeaker = isActualCaller ? 'User A' : 'User B';
+    cleanSpeaker = isCallerDevice ? 'User A' : 'User B';
   }
 
-  const isUserA = cleanSpeaker === 'User A';
-  const isMe = (isActualCaller && isUserA) || (!isActualCaller && !isUserA);
+  const isUserA = (cleanSpeaker === 'User A');
+  const isMe = (isCallerDevice && isUserA) || (!isCallerDevice && !isUserA);
   const speakerColor = isUserA ? '#38bdf8' : '#00ff87';
   const speakerRoleTag = isUserA ? '(Caller)' : '(Receiver)';
   const deviceTag = isMe ? '· You' : '· Companion';
@@ -2573,11 +2683,22 @@ function simulateScam(type) {
   `;
 }
 
-// Initialize on page load
+// Initialize on page load (Starts STT immediately on fresh app open & keeps it alive)
 window.addEventListener('DOMContentLoaded', () => {
   setChannel(currentChannel);
   updateSoundAlertUI();
   updateAutoRoleDisplay();
+  startContinuousSpeechInterceptor();
+  initSTTWatchdog();
+});
+
+// Mobile gesture unlock listener to guarantee microphone/audio permissions are primed
+['click', 'touchstart'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    if (!isRecognitionRunning && !isSTTRestartPending) {
+      startContinuousSpeechInterceptor();
+    }
+  }, { once: false, passive: true });
 });
 </script>
 </body>
