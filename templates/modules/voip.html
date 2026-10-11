@@ -1146,14 +1146,19 @@ function getPartnerSlots() {
     .map(s => getSlotPeerId(s));
 }
 
+let lastCandidateFailTime = 0;
 function handleCandidatePeerUnavailable() {
   if (!isHuntingActive) return;
+  const now = Date.now();
+  if (now - lastCandidateFailTime < 180) return;
+  lastCandidateFailTime = now;
+
   if (callingCandidateQueue.length > 0) {
     const nextTarget = callingCandidateQueue.shift();
     showHuntingToast(`Checking partner slot (${nextTarget.split('_').pop()})...`);
     setTimeout(() => {
       if (isHuntingActive) executeStartCall(nextTarget);
-    }, 250);
+    }, 200);
   } else {
     // Partner slots were checked. Companion might still be opening the line/hub.
     const disp = getChannelDisplayName(currentChannel);
@@ -1734,13 +1739,16 @@ function setupActiveCall(call, peerName) {
 
   startCallTimer();
   
-  // Ensure STT starts cleanly without mic stream contention (giving WebRTC audio 900ms to stabilize)
+  // Ensure STT starts cleanly without mic stream contention (giving WebRTC audio 700ms to stabilize)
   setTimeout(() => {
+    lastCommittedUtterance = '';
+    lastUtteranceTime = 0;
+    interimSpeechBuffer = '';
     startContinuousSpeechInterceptor();
     if (localMediaStream) {
       initAcousticPitchTracker(localMediaStream);
     }
-  }, 900);
+  }, 700);
 }
 
 // ── 6. End Call (Guaranteed Automatic Cut on Both Devices) ──────────────────
@@ -1793,11 +1801,16 @@ function endCall(notifyPeer = true) {
   if (recognition) { try { recognition.abort(); } catch(e){} recognition = null; }
   if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
 
-  // 3. Gracefully tear down PeerJS connection objects after packet flushes
+  // 3. Gracefully tear down PeerJS connection objects and refresh Peer instance
   setTimeout(() => {
     if (currentCall) { try { currentCall.close(); } catch(e){} currentCall = null; }
     if (dataConn) { try { dataConn.close(); } catch(e){} dataConn = null; }
-  }, 250);
+    incomingCallObj = null;
+    isHuntingActive = false;
+    // CRITICAL: Refresh PeerJS client on this channel so RTCPeerConnection states
+    // are completely clean and ready for 2nd, 3rd, and unlimited calls!
+    reconnectPeer();
+  }, 350);
 }
 
 function startCallTimer() {
@@ -1827,11 +1840,16 @@ let recognitionRestartTimer = null;
 let interimSpeechBuffer = '';
 let interimDebounceTimer = null;
 let lastCommittedUtterance = '';
+let lastUtteranceTime = 0;
 
 function commitSpeechUtterance(text, isDangerHint) {
   const trimmed = (text || '').trim();
-  if (!trimmed || trimmed === lastCommittedUtterance) return;
+  if (!trimmed) return;
+  const now = Date.now();
+  // Allow repeated phrases after 1.5 seconds so "hello", "yes", etc. are never blocked
+  if (trimmed === lastCommittedUtterance && (now - lastUtteranceTime) < 1500) return;
   lastCommittedUtterance = trimmed;
+  lastUtteranceTime = now;
   processSpokenText(trimmed, true);
 }
 
@@ -2011,6 +2029,14 @@ function startContinuousSpeechInterceptor() {
       recognition.start();
     } catch(e) {
       console.warn("Speech recognition start warning:", e);
+      if (currentCall) {
+        if (recognitionRestartTimer) clearTimeout(recognitionRestartTimer);
+        recognitionRestartTimer = setTimeout(() => {
+          if (currentCall && !isRecognitionRunning) {
+            try { recognition.start(); } catch(err){}
+          }
+        }, 500);
+      }
     }
   } catch(e) {
     console.warn("Speech interceptor init note:", e);
