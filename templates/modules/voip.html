@@ -21,23 +21,44 @@ if (typeof Peer === 'undefined') {
 </script>
 <style>
 :root {
+  /* Default Clean Light Theme */
+  --cs-bg: #F8FAFC;
+  --cs-card: #FFFFFF;
+  --cs-card-sub: #F1F5F9;
+  --cs-text-main: #0F172A;
+  --cs-text-sub: #64748B;
+  --cs-cyan: #0284C7;
+  --cs-green: #16A34A;
+  --cs-red: #DC2626;
+  --cs-yellow: #D97706;
+  --cs-orange: #EA580C;
+  --cs-border: #E2E8F0;
+  --cs-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme='dark'], body.dark-mode {
   --cs-bg: #070a13;
   --cs-card: #0f172a;
   --cs-card-sub: #1e293b;
+  --cs-text-main: #F8FAFC;
+  --cs-text-sub: #94A3B8;
   --cs-cyan: #00d4ff;
   --cs-green: #00ff87;
   --cs-red: #ff3c3c;
   --cs-yellow: #ffd700;
   --cs-orange: #ff8c00;
   --cs-border: rgba(0, 212, 255, 0.18);
+  --cs-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
+
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body {
   background: var(--cs-bg);
-  color: #f1f5f9;
+  color: var(--cs-text-main);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   min-height: 100vh;
   padding-bottom: 24px;
+  transition: background 0.25s ease, color 0.25s ease;
 }
 .header {
   background: var(--cs-card);
@@ -49,10 +70,11 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
+  box-shadow: var(--cs-shadow);
 }
 .header-brand { display: flex; align-items: center; gap: 8px; }
-.header-brand h1 { font-size: 16px; font-weight: 700; color: #fff; }
-.header-brand span { font-size: 10px; color: var(--cs-cyan); }
+.header-brand h1 { font-size: 16px; font-weight: 800; color: var(--cs-text-main); }
+.header-brand span { font-size: 10px; color: var(--cs-cyan); font-weight: 700; }
 .badge-status {
   padding: 4px 10px;
   border-radius: 12px;
@@ -438,7 +460,10 @@ body {
       <span>LIVE CALL INTERCEPTOR</span>
     </div>
   </div>
-  <div id="statusBadge" class="badge-status">● Connecting...</div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button id="themeToggleBtn" onclick="toggleAppTheme()" style="background:var(--cs-card-sub);border:1px solid var(--cs-border);color:var(--cs-text-main);font-size:12px;padding:4px 9px;border-radius:10px;cursor:pointer;font-weight:700;" title="Toggle Light / Dark mode">☀️ Light</button>
+    <div id="statusBadge" class="badge-status">● Connecting...</div>
+  </div>
 </div>
 
 <div class="container">
@@ -1090,11 +1115,37 @@ function tryConnectNextSlot() {
   }
 }
 
-const DEFAULT_GLOBAL_BACKEND = 'survey-work-packard-surrey.trycloudflare.com';
+function toggleAppTheme() {
+  const isDark = document.body.classList.contains('dark-mode') || document.documentElement.getAttribute('data-theme') === 'dark';
+  const newTheme = isDark ? 'light' : 'dark';
+  setAppTheme(newTheme);
+}
+
+function setAppTheme(theme) {
+  const btn = document.getElementById('themeToggleBtn');
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.body.classList.add('dark-mode');
+    localStorage.setItem('cs_theme_preference', 'dark');
+    if (btn) btn.textContent = '🌙 Dark';
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.body.classList.remove('dark-mode');
+    localStorage.setItem('cs_theme_preference', 'light');
+    if (btn) btn.textContent = '☀️ Light';
+  }
+}
+
+function initThemeSystem() {
+  const saved = localStorage.getItem('cs_theme_preference') || 'light';
+  setAppTheme(saved);
+}
+
+const DEFAULT_LOCAL_BACKEND = '192.168.65.34:5000';
 
 function promptChangeBackendHost() {
-  const current = localStorage.getItem('cs_backend_host') || DEFAULT_GLOBAL_BACKEND;
-  const val = prompt('Enter Backend Server (Cloudflare URL or IP:Port):\nDefault Global (Works over 4G/5G/Any Wi-Fi):\n' + DEFAULT_GLOBAL_BACKEND, current);
+  const current = localStorage.getItem('cs_backend_host') || DEFAULT_LOCAL_BACKEND;
+  const val = prompt('Enter Laptop Server IP:Port (e.g. 192.168.65.34:5000):\nConnect phone and laptop to same Wi-Fi / Hotspot:', current);
   if (val && val.trim()) {
     let clean = val.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
     localStorage.setItem('cs_backend_host', clean);
@@ -1107,7 +1158,7 @@ function updateBackendHostUI() {
   const el = document.getElementById('backendHostDisplay');
   if (el) {
     const isHttp = (window.location.protocol === 'http:' || window.location.protocol === 'https:');
-    const h = isHttp ? (window.location.host || 'localhost:5000') : (localStorage.getItem('cs_backend_host') || DEFAULT_GLOBAL_BACKEND);
+    const h = isHttp ? (window.location.host || 'localhost:5000') : (localStorage.getItem('cs_backend_host') || DEFAULT_LOCAL_BACKEND);
     el.textContent = h;
   }
 }
@@ -1144,23 +1195,25 @@ function initPeerWithId(peerId) {
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
         { urls: 'stun:stun.cloudflare.com:3478' }
       ]
     }
   };
 
-  // Connect to the high-speed Flask-PeerJS signaling engine (Global 4G/5G or Localhost)
-  let activeHost = DEFAULT_GLOBAL_BACKEND;
-  let activePort = 443;
-  let activeSecure = true;
+  // Connect directly to local laptop signaling engine over LAN Wi-Fi / Hotspot (NO Cloudflare needed!)
+  let activeHost = '192.168.65.34';
+  let activePort = 5000;
+  let activeSecure = false;
 
   if (isHttp && window.location.hostname) {
     activeHost = window.location.hostname;
     activePort = window.location.port ? parseInt(window.location.port, 10) : (window.location.protocol === 'https:' ? 443 : 80);
     activeSecure = (window.location.protocol === 'https:');
   } else {
-    // Running in Android WebView APK (file:///android_asset)
-    const stored = localStorage.getItem('cs_backend_host') || DEFAULT_GLOBAL_BACKEND;
+    // Running in Android APK WebView (file:///android_asset)
+    const stored = localStorage.getItem('cs_backend_host') || DEFAULT_LOCAL_BACKEND;
     if (stored) {
       let raw = stored.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
       if (raw.includes(':')) {
@@ -1170,12 +1223,10 @@ function initPeerWithId(peerId) {
         activeSecure = (activePort === 443);
       } else {
         activeHost = raw;
-        // If domain ends with trycloudflare.com or is a cloud domain, use secure HTTPS/WSS 443
-        if (activeHost.includes('trycloudflare.com') || activeHost.includes('.com') || activeHost.includes('.app') || activeHost.includes('.net')) {
+        if (activeHost.includes('.com') || activeHost.includes('.app') || activeHost.includes('.net')) {
           activePort = 443;
           activeSecure = true;
         } else {
-          // Plain LAN IP like 192.168.x.x without port defaults to port 5000
           activePort = 5000;
           activeSecure = false;
         }
@@ -3347,6 +3398,7 @@ function clearAllDatabaseConversations() {
 
 // Initialize on page load (Starts STT immediately on fresh app open & keeps it alive)
 window.addEventListener('DOMContentLoaded', () => {
+  initThemeSystem();
   updateBackendHostUI();
   setChannel(currentChannel);
   updateSoundAlertUI();

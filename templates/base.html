@@ -64,52 +64,55 @@
     
     {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-gradient-to-br from-gray-950 via-slate-950 to-gray-900 text-gray-100 min-h-screen flex flex-col font-sans pb-20 md:pb-0 selection:bg-blue-500 selection:text-white">
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col font-sans pb-20 md:pb-0 selection:bg-blue-600 selection:text-white transition-colors duration-200">
     <!-- Top Navigation Header -->
-    <nav class="bg-gray-950/95 backdrop-blur-2xl border-b border-blue-500/20 sticky top-0 z-50 shadow-2xl">
+    <nav class="bg-white/95 backdrop-blur-2xl border-b border-slate-200 sticky top-0 z-50 shadow-sm transition-colors duration-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-15 py-2">
+            <div class="flex justify-between items-center h-16 py-2">
                 <!-- App Brand Logo -->
                 <a href="/" class="flex items-center space-x-3 group">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:scale-105 transition-transform">
-                        <i class="fas fa-shield-alt text-xl text-white"></i>
+                    <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-md shadow-blue-500/25 group-hover:scale-105 transition-transform text-white">
+                        <i class="fas fa-shield-alt text-xl"></i>
                     </div>
                     <div>
-                        <span class="text-lg sm:text-xl font-black bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent tracking-wide">
-                            CallShield AI
+                        <span class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
+                            CallShield <span class="text-blue-600">AI</span>
                         </span>
-                        <span class="block text-[9px] text-emerald-400 font-bold uppercase tracking-wider">
-                            🛡️ Voice Scam Protection
+                        <span class="block text-[10px] text-emerald-600 font-bold uppercase tracking-wider">
+                            🛡️ Real-Time Call Protection
                         </span>
                     </div>
                 </a>
                 
                 <!-- Desktop Top Navigation -->
-                <div class="hidden md:flex items-center space-x-1.5">
-                    <a href="/modules/voip" id="top-nav-voip" class="px-3 py-2 rounded-xl text-sm font-semibold text-cyan-300 hover:bg-cyan-950/40 border border-cyan-500/30 transition flex items-center gap-2">
-                        <i class="fas fa-headset text-cyan-400"></i> VoIP Call
+                <div class="hidden md:flex items-center space-x-1">
+                    <a href="/modules/voip" id="top-nav-voip" class="px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-slate-100 transition flex items-center gap-2">
+                        <i class="fas fa-headset text-blue-600"></i> VoIP Call
                     </a>
-                    <a href="/modules/dialer" id="top-nav-dialer" class="px-3 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
-                        <i class="fas fa-phone-alt text-blue-400"></i> Dialer
+                    <a href="/modules/dialer" id="top-nav-dialer" class="px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-slate-100 transition flex items-center gap-2">
+                        <i class="fas fa-phone-alt text-slate-500"></i> Dialer
                     </a>
-                    <a href="/modules/live-call" id="top-nav-live" class="px-3 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
-                        <i class="fas fa-satellite-dish text-emerald-400"></i> Live Scanner
+                    <a href="/modules/live-call" id="top-nav-live" class="px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-emerald-600 hover:bg-slate-100 transition flex items-center gap-2">
+                        <i class="fas fa-satellite-dish text-emerald-600"></i> Live Scanner
                     </a>
-                    <a href="/modules/recorded" id="top-nav-recorded" class="px-3 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
-                        <i class="fas fa-file-audio text-purple-400"></i> Recorded
+                    <a href="/modules/recorded" id="top-nav-recorded" class="px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-purple-600 hover:bg-slate-100 transition flex items-center gap-2">
+                        <i class="fas fa-file-audio text-purple-600"></i> Recorded
                     </a>
-                    <a href="/modules/chatbot" id="top-nav-chatbot" class="px-3 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
-                        <i class="fas fa-robot text-pink-400"></i> AI Chatbot
+                    <a href="/modules/chatbot" id="top-nav-chatbot" class="px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-cyan-600 hover:bg-slate-100 transition flex items-center gap-2">
+                        <i class="fas fa-robot text-cyan-600"></i> AI Chatbot
                     </a>
-                    <a href="/dashboard" id="top-nav-dashboard" class="px-3 py-2 rounded-xl text-sm font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center gap-2">
-                        <i class="fas fa-chart-line text-amber-400"></i> Dashboard
+                    <a href="/dashboard" id="top-nav-dashboard" class="px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-slate-100 transition flex items-center gap-2">
+                        <i class="fas fa-chart-line text-blue-600"></i> Dashboard
                     </a>
                 </div>
 
-                <!-- Action Button -->
-                <div class="flex items-center space-x-2">
-                    <a href="/modules/voip" class="px-3.5 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-lg shadow-cyan-900/30 flex items-center gap-1.5 active:scale-95 transition">
-                        <i class="fas fa-headset"></i> VoIP Call
+                <!-- Action Button & Theme Switcher -->
+                <div class="flex items-center space-x-2.5">
+                    <button id="globalThemeToggleBtn" onclick="toggleGlobalTheme()" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 shadow-sm" title="Toggle Light / Dark mode">
+                        <span id="themeToggleIcon">☀️</span> <span id="themeToggleText" class="hidden sm:inline">Light</span>
+                    </button>
+                    <a href="/modules/voip" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-blue-600/20 flex items-center gap-1.5 active:scale-95 transition">
+                        <i class="fas fa-phone-volume"></i> VoIP Call
                     </a>
                 </div>
             </div>
@@ -117,34 +120,34 @@
     </nav>
     
     <!-- Main Content Body -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6">
+    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
         {% block content %}{% endblock %}
     </main>
     
     <!-- Native Mobile Bottom Navigation Bar (Persistent across Mobile/Tablet) -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-gray-950/98 backdrop-blur-2xl border-t border-gray-800/80 z-50 mobile-bottom-nav shadow-2xl">
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white/98 backdrop-blur-2xl border-t border-slate-200 z-50 mobile-bottom-nav shadow-lg">
         <div class="grid grid-cols-6 h-16">
-            <a href="/modules/voip" id="bot-nav-voip" class="flex flex-col items-center justify-center text-cyan-400 hover:text-cyan-300 transition active:scale-95">
+            <a href="/modules/voip" id="bot-nav-voip" class="flex flex-col items-center justify-center text-slate-500 hover:text-blue-600 transition active:scale-95">
                 <i class="fas fa-headset text-base mb-1"></i>
                 <span class="text-[9px] font-bold">VoIP</span>
             </a>
-            <a href="/modules/dialer" id="bot-nav-dialer" class="flex flex-col items-center justify-center text-gray-400 hover:text-blue-400 transition active:scale-95">
+            <a href="/modules/dialer" id="bot-nav-dialer" class="flex flex-col items-center justify-center text-slate-500 hover:text-blue-600 transition active:scale-95">
                 <i class="fas fa-phone-alt text-base mb-1"></i>
                 <span class="text-[9px] font-medium">Dialer</span>
             </a>
-            <a href="/modules/live-call" id="bot-nav-live" class="flex flex-col items-center justify-center text-gray-400 hover:text-emerald-400 transition active:scale-95">
+            <a href="/modules/live-call" id="bot-nav-live" class="flex flex-col items-center justify-center text-slate-500 hover:text-emerald-600 transition active:scale-95">
                 <i class="fas fa-satellite-dish text-base mb-1"></i>
                 <span class="text-[9px] font-medium">Live</span>
             </a>
-            <a href="/modules/recorded" id="bot-nav-recorded" class="flex flex-col items-center justify-center text-gray-400 hover:text-purple-400 transition active:scale-95">
+            <a href="/modules/recorded" id="bot-nav-recorded" class="flex flex-col items-center justify-center text-slate-500 hover:text-purple-600 transition active:scale-95">
                 <i class="fas fa-file-audio text-base mb-1"></i>
                 <span class="text-[9px] font-medium">Audio</span>
             </a>
-            <a href="/modules/chatbot" id="bot-nav-chatbot" class="flex flex-col items-center justify-center text-gray-400 hover:text-pink-400 transition active:scale-95">
+            <a href="/modules/chatbot" id="bot-nav-chatbot" class="flex flex-col items-center justify-center text-slate-500 hover:text-cyan-600 transition active:scale-95">
                 <i class="fas fa-robot text-base mb-1"></i>
                 <span class="text-[9px] font-medium">AI Chat</span>
             </a>
-            <a href="/dashboard" id="bot-nav-dashboard" class="flex flex-col items-center justify-center text-gray-400 hover:text-amber-400 transition active:scale-95">
+            <a href="/dashboard" id="bot-nav-dashboard" class="flex flex-col items-center justify-center text-slate-500 hover:text-blue-600 transition active:scale-95">
                 <i class="fas fa-chart-bar text-base mb-1"></i>
                 <span class="text-[9px] font-medium">Stats</span>
             </a>
@@ -152,43 +155,60 @@
     </nav>
     
     <!-- Desktop Footer -->
-    <footer class="hidden md:block bg-gray-950/90 border-t border-gray-800/80 py-4 mt-8">
+    <footer class="hidden md:block bg-white border-t border-slate-200 py-4 mt-8">
         <div class="max-w-7xl mx-auto px-4 text-center space-y-1">
-            <p class="text-xs text-gray-400">🛡️ <strong>CallShield AI</strong> — Real-Time Voice Scam Detection System</p>
-            <p class="text-[11px] text-gray-500">Fully Responsive UI for Mobile Android/iOS, Tablet, and Desktop PC</p>
+            <p class="text-xs text-slate-600">🛡️ <strong>CallShield AI</strong> — Real-Time Voice Scam Detection System</p>
+            <p class="text-[11px] text-slate-400">Clean & Responsive UI for Mobile Android/iOS, Tablet, and Desktop PC</p>
         </div>
     </footer>
     
     <script>
+        function setGlobalTheme(theme) {
+            const isDark = (theme === 'dark');
+            const icon = document.getElementById('themeToggleIcon');
+            const text = document.getElementById('themeToggleText');
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('cs_theme_preference', 'dark');
+                if (icon) icon.textContent = '🌙';
+                if (text) text.textContent = 'Dark';
+            } else {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('cs_theme_preference', 'light');
+                if (icon) icon.textContent = '☀️';
+                if (text) text.textContent = 'Light';
+            }
+        }
+
+        function toggleGlobalTheme() {
+            const isDark = document.documentElement.classList.contains('dark');
+            setGlobalTheme(isDark ? 'light' : 'dark');
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            document.body.classList.add('animate-slide-up');
+            const savedTheme = localStorage.getItem('cs_theme_preference') || 'light';
+            setGlobalTheme(savedTheme);
             
             // Highlight current active page in navigation
             const path = window.location.pathname;
             if (path.includes('/voip')) {
-                document.getElementById('bot-nav-voip')?.classList.add('tab-active-item');
-                document.getElementById('bot-nav-voip')?.querySelector('i')?.classList.add('tab-active-icon');
-                document.getElementById('top-nav-voip')?.classList.add('bg-cyan-600/20', 'text-cyan-300', 'border', 'border-cyan-500/50');
+                document.getElementById('bot-nav-voip')?.classList.add('text-blue-600', 'font-extrabold');
+                document.getElementById('top-nav-voip')?.classList.add('bg-blue-50', 'text-blue-600', 'border', 'border-blue-200');
             } else if (path.includes('/dialer')) {
-                document.getElementById('bot-nav-dialer')?.classList.add('tab-active-item');
-                document.getElementById('bot-nav-dialer')?.querySelector('i')?.classList.add('tab-active-icon');
-                document.getElementById('top-nav-dialer')?.classList.add('bg-blue-600/20', 'text-blue-400', 'border', 'border-blue-500/30');
+                document.getElementById('bot-nav-dialer')?.classList.add('text-blue-600', 'font-extrabold');
+                document.getElementById('top-nav-dialer')?.classList.add('bg-blue-50', 'text-blue-600', 'border', 'border-blue-200');
             } else if (path.includes('/live-call')) {
-                document.getElementById('bot-nav-live')?.classList.add('tab-active-item');
-                document.getElementById('bot-nav-live')?.querySelector('i')?.classList.add('tab-active-icon');
-                document.getElementById('top-nav-live')?.classList.add('bg-emerald-600/20', 'text-emerald-400', 'border', 'border-emerald-500/30');
+                document.getElementById('bot-nav-live')?.classList.add('text-emerald-600', 'font-extrabold');
+                document.getElementById('top-nav-live')?.classList.add('bg-emerald-50', 'text-emerald-600', 'border', 'border-emerald-200');
             } else if (path.includes('/recorded')) {
-                document.getElementById('bot-nav-recorded')?.classList.add('tab-active-item');
-                document.getElementById('bot-nav-recorded')?.querySelector('i')?.classList.add('tab-active-icon');
-                document.getElementById('top-nav-recorded')?.classList.add('bg-purple-600/20', 'text-purple-400', 'border', 'border-purple-500/30');
+                document.getElementById('bot-nav-recorded')?.classList.add('text-purple-600', 'font-extrabold');
+                document.getElementById('top-nav-recorded')?.classList.add('bg-purple-50', 'text-purple-600', 'border', 'border-purple-200');
             } else if (path.includes('/chatbot')) {
-                document.getElementById('bot-nav-chatbot')?.classList.add('tab-active-item');
-                document.getElementById('bot-nav-chatbot')?.querySelector('i')?.classList.add('tab-active-icon');
-                document.getElementById('top-nav-chatbot')?.classList.add('bg-pink-600/20', 'text-pink-400', 'border', 'border-pink-500/30');
+                document.getElementById('bot-nav-chatbot')?.classList.add('text-cyan-600', 'font-extrabold');
+                document.getElementById('top-nav-chatbot')?.classList.add('bg-cyan-50', 'text-cyan-600', 'border', 'border-cyan-200');
             } else if (path.includes('/dashboard')) {
-                document.getElementById('bot-nav-dashboard')?.classList.add('tab-active-item');
-                document.getElementById('bot-nav-dashboard')?.querySelector('i')?.classList.add('tab-active-icon');
-                document.getElementById('top-nav-dashboard')?.classList.add('bg-amber-600/20', 'text-amber-400', 'border', 'border-amber-500/30');
+                document.getElementById('bot-nav-dashboard')?.classList.add('text-blue-600', 'font-extrabold');
+                document.getElementById('top-nav-dashboard')?.classList.add('bg-blue-50', 'text-blue-600', 'border', 'border-blue-200');
             }
         });
     </script>
