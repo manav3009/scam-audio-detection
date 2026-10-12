@@ -58,6 +58,20 @@ def voip_page():
     return render_template('modules/voip.html')
 
 
+@voip_bp.route('/modules/peerjs.min.js')
+@voip_bp.route('/peerjs.min.js')
+@voip_bp.route('/modules/voip/peerjs.min.js')
+def peerjs_library():
+    """Serves the local offline PeerJS WebRTC library directly."""
+    import os
+    from flask import send_from_directory
+    static_mod = os.path.join(voip_bp.root_path, '..', 'static', 'modules')
+    if os.path.exists(os.path.join(static_mod, 'peerjs.min.js')):
+        return send_from_directory(static_mod, 'peerjs.min.js', mimetype='application/javascript')
+    tpl_mod = os.path.join(voip_bp.root_path, '..', 'templates', 'modules')
+    return send_from_directory(tpl_mod, 'peerjs.min.js', mimetype='application/javascript')
+
+
 @voip_bp.route('/modules/voip/history')
 def voip_history_page():
     """Renders the VoIP call history page."""

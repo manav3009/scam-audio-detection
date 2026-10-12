@@ -4,11 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>CallShield AI — Live Internet Call Interceptor</title>
-<!-- Global PeerJS WebRTC Library (Local Asset first, CDN fallback) -->
+<!-- Global PeerJS WebRTC Library (Local Asset first, non-blocking dynamic fallback) -->
 <script src="peerjs.min.js"></script>
 <script>
 if (typeof Peer === 'undefined') {
-  document.write('<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"><\/script>');
+  var _peerFallbackScript = document.createElement('script');
+  _peerFallbackScript.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+  _peerFallbackScript.onload = function() {
+    console.log('[WebRTC] PeerJS CDN fallback loaded successfully.');
+    if (typeof initPeerWithId === 'function' && typeof currentChannel !== 'undefined') {
+      reconnectPeer();
+    }
+  };
+  document.head.appendChild(_peerFallbackScript);
 }
 </script>
 <style>
@@ -1081,6 +1089,18 @@ function tryConnectNextSlot() {
 }
 
 function initPeerWithId(peerId) {
+  if (typeof Peer === 'undefined') {
+    console.warn('[WebRTC] PeerJS engine not ready yet, retrying in 300ms...');
+    const badge = document.getElementById('statusBadge');
+    if (badge) {
+      badge.textContent = `● Initializing Engine...`;
+      badge.style.borderColor = 'var(--cs-yellow)';
+      badge.style.color = 'var(--cs-yellow)';
+    }
+    setTimeout(() => { initPeerWithId(peerId); }, 300);
+    return;
+  }
+
   // Always destroy previous instance before creating a new one
   if (myPeer && !myPeer.destroyed) {
     try {
@@ -2108,7 +2128,7 @@ let lastUtteranceTime = 0;
 // Expanded from 15 to 250 items to eliminate memory fragmentation during long calls (1-5 hours)
 const MAX_INTERCEPTION_BUFFER_SIZE = 250;
 let currentCallSessionId = null;
-let recentRemoteTranscripts = []; // Ring buffer with fixed bound
+// Note: recentRemoteTranscripts circular ring buffer is initialized globally on line 854
 
 // IndexedDB / SQLite Bridge Storage for all conversations
 const FORENSIC_DB_KEY = 'callshield_conversation_sessions_v1';
@@ -2139,11 +2159,27 @@ function saveStoredSessions(sessions) {
   } catch(e){}
 }
 
+function getCallStats() {
+  if (window.CallShieldBridge && window.CallShieldBridge.dbGetCallStats) {
+    try {
+      const nativeStats = JSON.parse(window.CallShieldBridge.dbGetCallStats());
+      if (nativeStats && typeof nativeStats.totalCalls === 'number') {
+        return nativeStats;
+      }
+    } catch(e){}
+  }
+  const sessions = getStoredSessions();
+  const total = sessions.length;
+  const fraud = sessions.filter(s => Boolean(s.isScam || (s.peakScore >= 35))).length;
+  const safe = Math.max(0, total - fraud);
+  return { totalCalls: total, fraudCalls: fraud, safeCalls: safe };
+}
+
 function updateDbRecordCountUI() {
   try {
-    const list = getStoredSessions();
+    const stats = getCallStats();
     const el = document.getElementById('dbRecordCount');
-    if (el) el.textContent = list.length;
+    if (el) el.textContent = `${stats.totalCalls} Calls (${stats.fraudCalls} Fraud · ${stats.safeCalls} Safe)`;
   } catch(e){}
 }
 
@@ -2234,7 +2270,14 @@ function finalizeCallSessionRecord() {
     } catch(e){}
   }
 
-  // 2. Web Local Storage Database
+  // 2. Auto-save timestamped forensic JSON evidence file to device filesystem
+  if (window.CallShieldBridge && window.CallShieldBridge.dbSaveSessionForensicFile) {
+    try {
+      window.CallShieldBridge.dbSaveSessionForensicFile(currentCallSessionId);
+    } catch(e){}
+  }
+
+  // 3. Web Local Storage Database
   try {
     const sessions = getStoredSessions();
     const session = sessions.find(s => s.sessionId === currentCallSessionId);
@@ -2246,6 +2289,7 @@ function finalizeCallSessionRecord() {
     }
   } catch(e){}
   currentCallSessionId = null;
+  updateDbRecordCountUI();
 }
 
 // ── Extended Acoustic Echo Loopback Buffer & Ring Suppressor ──
@@ -3103,10 +3147,30 @@ function renderDatabaseSessionsList() {
 
   const sessions = getStoredSessions();
   updateDbRecordCountUI();
+  const stats = getCallStats();
+
+  let summaryHeader = `
+    <div style="background:linear-gradient(135deg, #0f172a, #1e293b);border:1px solid rgba(0,212,255,0.25);border-radius:12px;padding:12px;margin-bottom:12px;display:flex;justify-content:space-around;text-align:center;">
+      <div>
+        <div style="font-size:20px;font-weight:900;color:#fff;">${stats.totalCalls}</div>
+        <div style="font-size:10px;color:#94a3b8;font-weight:bold;margin-top:2px;">TOTAL CALLS</div>
+      </div>
+      <div style="width:1px;background:#334155;"></div>
+      <div>
+        <div style="font-size:20px;font-weight:900;color:var(--cs-red);">${stats.fraudCalls}</div>
+        <div style="font-size:10px;color:#fca5a5;font-weight:bold;margin-top:2px;">🚨 FRAUD CALLS</div>
+      </div>
+      <div style="width:1px;background:#334155;"></div>
+      <div>
+        <div style="font-size:20px;font-weight:900;color:var(--cs-green);">${stats.safeCalls}</div>
+        <div style="font-size:10px;color:#86efac;font-weight:bold;margin-top:2px;">🟢 SAFE CALLS</div>
+      </div>
+    </div>
+  `;
 
   if (!sessions || sessions.length === 0) {
-    listPanel.innerHTML = `
-      <div style="text-align:center;color:#64748b;padding:40px 10px;">
+    listPanel.innerHTML = summaryHeader + `
+      <div style="text-align:center;color:#64748b;padding:30px 10px;">
         <div style="font-size:32px;margin-bottom:8px;">📁</div>
         <b>No call conversations logged yet.</b>
         <div style="font-size:11px;margin-top:4px;">Initiate or receive a call on Line 101 to log live conversations & speech forensics!</div>
@@ -3115,23 +3179,24 @@ function renderDatabaseSessionsList() {
     return;
   }
 
-  let html = '';
+  let html = summaryHeader;
   sessions.forEach((s, idx) => {
     const isScam = Boolean(s.isScam || (s.peakScore >= 35));
     const badgeColor = isScam ? 'var(--cs-red)' : 'var(--cs-green)';
     const badgeText = isScam ? `🚨 FRAUD (${s.peakScore || 90}%)` : `🟢 SAFE (${s.peakScore || 0}%)`;
     const dateStr = s.startTime ? new Date(s.startTime).toLocaleString() : 'Recent Call';
     const count = (s.utterances ? s.utterances.length : (s.utteranceCount || 0));
+    const durationSec = (s.endTime && s.startTime) ? Math.max(1, Math.round((s.endTime - s.startTime)/1000)) + 's' : 'Saved';
 
     html += `
-      <div style="background:#030712;border:1px solid #1e293b;border-left:4px solid ${badgeColor};padding:10px 12px;border-radius:10px;cursor:pointer;" onclick="viewSessionDetail('${s.sessionId}')">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <span style="font-size:12px;font-weight:700;color:#fff;">Line ${s.channel || '101'} · Role: ${s.role || 'CALL'}</span>
-          <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${isScam ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)'};color:${badgeColor};font-weight:bold;">${badgeText}</span>
+      <div style="background:#030712;border:1px solid #1e293b;border-left:4px solid ${badgeColor};padding:12px;border-radius:10px;cursor:pointer;" onclick="viewSessionDetail('${s.sessionId}')">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:13px;font-weight:700;color:#fff;">Line ${s.channel || '101'} · Role: ${s.role || 'CALL'}</span>
+          <span style="font-size:10px;padding:3px 8px;border-radius:8px;background:${isScam ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)'};color:${badgeColor};font-weight:bold;">${badgeText}</span>
         </div>
         <div style="font-size:11px;color:#94a3b8;display:flex;justify-content:space-between;">
           <span>🕒 ${dateStr}</span>
-          <span>💬 ${count} Utterances</span>
+          <span>⏱️ ${durationSec} · 💬 ${count} Utterances</span>
         </div>
       </div>
     `;
@@ -3157,8 +3222,10 @@ function viewSessionDetail(sessionId) {
   }
 
   const isScam = Boolean(session.isScam || (session.peakScore >= 35));
-  badge.textContent = isScam ? `🚨 FRAUD SPIKE: ${session.peakScore}%` : '🟢 SAFE CALL (0%)';
-  badge.style.color = isScam ? 'var(--cs-red)' : 'var(--cs-green)';
+  badge.innerHTML = `
+    <span style="color:${isScam ? 'var(--cs-red)' : 'var(--cs-green)'}">${isScam ? `🚨 FRAUD SPIKE: ${session.peakScore}%` : '🟢 SAFE CALL (0%)'}</span>
+    <button onclick="exportSingleSessionJson('${sessionId}')" style="margin-left:8px;background:rgba(56,189,248,0.2);border:1px solid #38bdf8;color:#38bdf8;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">💾 Save File</button>
+  `;
 
   // Load utterances from Android native DB or Web array
   let utterances = session.utterances || [];
@@ -3194,6 +3261,31 @@ function viewSessionDetail(sessionId) {
     `;
   });
   transcriptWrap.innerHTML = html;
+}
+
+function exportSingleSessionJson(sessionId) {
+  const sessions = getStoredSessions();
+  const session = sessions.find(s => s.sessionId === sessionId);
+  if (!session) return;
+
+  if (window.CallShieldBridge && window.CallShieldBridge.dbSaveSessionForensicFile) {
+    try {
+      const savedPath = window.CallShieldBridge.dbSaveSessionForensicFile(sessionId);
+      if (savedPath) {
+        alert("Forensic Evidence File saved to device storage:\n" + savedPath);
+        return;
+      }
+    } catch(e){}
+  }
+
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(session, null, 2));
+  const dlAnchor = document.createElement('a');
+  dlAnchor.setAttribute("href", dataStr);
+  const statusStr = (session.isScam || session.peakScore >= 35) ? 'FRAUD' : 'SAFE';
+  dlAnchor.setAttribute("download", `call_${session.startTime || Date.now()}_${statusStr}_${session.channel || '101'}.json`);
+  document.body.appendChild(dlAnchor);
+  dlAnchor.click();
+  dlAnchor.remove();
 }
 
 function exportCurrentDatabaseJson() {
