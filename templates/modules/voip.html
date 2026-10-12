@@ -4,8 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>CallShield AI — Live Internet Call Interceptor</title>
-<!-- Global PeerJS WebRTC Library -->
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<!-- Global PeerJS WebRTC Library (Local Asset first, CDN fallback) -->
+<script src="peerjs.min.js"></script>
+<script>
+if (typeof Peer === 'undefined') {
+  document.write('<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"><\/script>');
+}
+</script>
 <style>
 :root {
   --cs-bg: #070a13;
@@ -1522,23 +1527,21 @@ async function executeStartCall() {
   const disp = getChannelDisplayName(currentChannel);
   showHuntingToast(`Calling companion on ${disp}...`);
 
-  try {
-    if (!localMediaStream) {
-      localMediaStream = await getCleanAudioStream();
-    }
-  } catch(e) {
-    alert('Microphone permission required for VoIP calls.');
-    isHuntingActive = false;
-    return;
-  }
-
-  // Set in-call UI immediately so user sees outgoing call status
+  // Switch to in-call screen immediately so user gets 0ms click feedback
   document.getElementById('lobbyScreen').style.display = 'none';
   document.getElementById('callScreen').style.display = 'block';
   const myUserLabel = 'User A (Caller)';
   document.getElementById('callPeerName').textContent = `Line ${currentChannel} · ${myUserLabel}`;
   document.getElementById('callConnectionStatus').textContent = '📞 Ringing companion...';
   document.getElementById('callTimer').textContent = 'Ringing...';
+
+  try {
+    if (!localMediaStream) {
+      localMediaStream = await getCleanAudioStream();
+    }
+  } catch(e) {
+    console.warn('Microphone stream warning:', e);
+  }
 
   // Force clean restart of speech engine for this call
   restartSpeechEngineForCall();
