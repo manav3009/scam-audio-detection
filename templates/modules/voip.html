@@ -1899,7 +1899,23 @@ function setupActiveCall(call, peerName) {
 
   autoDetectedRole = 'NEUTRAL';
   hasSoundedAlertInCall = false;
+  peakRisk = 0;
+  detectedIndicators = new Set();
+  recentRemoteTranscripts = [];
+  lastCommittedUtterance = '';
+  lastUtteranceTime = 0;
+  updateRiskDisplay(0, 'LOW RISK', '—');
   updateAutoRoleDisplay();
+
+  // Clear in-call transcript & timeline panels for fresh call session
+  const pTrans = document.getElementById('transcriptPanel');
+  if (pTrans) {
+    pTrans.innerHTML = '<div class="transcript-placeholder" style="color:#64748b;text-align:center;padding:16px 0;">Speak into microphone or tap quick phrases below to intercept speech in real time...</div>';
+  }
+  const pTime = document.getElementById('timelinePanel');
+  if (pTime) {
+    pTime.innerHTML = '<div style="color:#64748b;text-align:center;padding:12px 0;">No threat spikes detected yet.</div>';
+  }
 
   // Initialize Call Conversation Database Session Record
   initCallSessionRecord();
@@ -1987,6 +2003,10 @@ function endCall(notifyPeer = true) {
   updateDbRecordCountUI();
 
   peakRisk = 0;
+  detectedIndicators = new Set();
+  recentRemoteTranscripts = [];
+  lastCommittedUtterance = '';
+  lastUtteranceTime = 0;
   updateRiskDisplay(0, 'LOW RISK', '—');
 
   // CRITICAL: Guaranteed reset of caller, hunting, and line busy states
