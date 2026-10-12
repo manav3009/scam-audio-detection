@@ -1019,7 +1019,7 @@ function updateLineStatusIndicators() {
 // ── 2. Reliable Cloud PeerJS Connection with Resilient 4-Slot Pool ──
 let isLineBusy = false;
 let isHuntingActive = false;
-const ROOM_SLOTS = ['A', 'B', 'C', 'D'];
+const ROOM_SLOTS = ['A', 'B', 'C', 'D', 'E', 'F'];
 let myCurrentSlotIndex = 0;
 let myAssignedPeerId = null;
 
@@ -1033,9 +1033,7 @@ function getMySlotLetter() {
 
 function getPartnerSlots() {
   const mySlot = getMySlotLetter();
-  if (mySlot === 'A') return [getSlotPeerId('B')];
-  if (mySlot === 'B') return [getSlotPeerId('A')];
-  return [getSlotPeerId('A'), getSlotPeerId('B')];
+  return ROOM_SLOTS.filter(s => s !== mySlot).map(s => getSlotPeerId(s));
 }
 
 function cleanupPeerConnection() {
@@ -1080,11 +1078,11 @@ function tryConnectNextSlot() {
     const slotLetter = ROOM_SLOTS[myCurrentSlotIndex];
     initPeerWithId(getSlotPeerId(slotLetter));
   } else {
-    // If all slots A-D are temporarily busy or releasing, back off 1.2s before cycling to avoid rate-limiting
+    // If all slots A-F are temporarily busy or releasing, quick 300ms wrap-around
     myCurrentSlotIndex = 0;
     setTimeout(() => {
       tryConnectNextSlot();
-    }, 1200);
+    }, 300);
   }
 }
 
@@ -1118,25 +1116,7 @@ function initPeerWithId(peerId) {
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' },
-        { urls: 'stun:stun.cloudflare.com:3478' },
-        { urls: 'stun:openrelay.metered.ca:80' },
-        {
-          urls: 'turn:openrelay.metered.ca:80',
-          username: 'openrelay',
-          credential: 'openrelay'
-        },
-        {
-          urls: 'turn:openrelay.metered.ca:443',
-          username: 'openrelay',
-          credential: 'openrelay'
-        },
-        {
-          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-          username: 'openrelay',
-          credential: 'openrelay'
-        }
+        { urls: 'stun:stun.cloudflare.com:3478' }
       ]
     }
   });
@@ -1219,7 +1199,7 @@ function initPeerWithId(peerId) {
     console.warn('Peer error:', err.type, err);
     if (err.type === 'unavailable-id') {
       myCurrentSlotIndex++;
-      setTimeout(tryConnectNextSlot, 60);
+      tryConnectNextSlot();
     } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
       console.warn('Signaling socket error occurred. Scheduling clean reconnection in 1.5s...');
       setTimeout(() => {
@@ -1282,24 +1262,12 @@ function showHuntingToast(msg) {
   }
 }
 
-// 🔄 Active Heartbeat Ping every 8s & Automatic Socket Re-connector
+// 🔄 Safe keep-alive heartbeat monitor (Never interrupts in-flight connection)
 setInterval(() => {
-  if (myPeer && !myPeer.destroyed) {
-    if (myPeer.disconnected) {
-      try { myPeer.reconnect(); } catch(e){}
-    } else if (myPeer.socket) {
-      try {
-        if (myPeer.socket._socket && myPeer.socket._socket.readyState === WebSocket.OPEN) {
-          myPeer.socket._socket.send(JSON.stringify({ type: 'HEARTBEAT' }));
-        } else if (myPeer.socket._socket && myPeer.socket._socket.readyState === WebSocket.CLOSED) {
-          if (!currentCall) reconnectPeer();
-        }
-      } catch(e){}
-    }
-  } else if (!currentCall) {
-    reconnectPeer();
+  if (myPeer && !myPeer.destroyed && myPeer.disconnected) {
+    try { myPeer.reconnect(); } catch(e){}
   }
-}, 8000);
+}, 15000);
 
 let dataOutbox = [];
 let activeDataConnections = {};
