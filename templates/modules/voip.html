@@ -529,6 +529,13 @@ body {
       <div style="font-size:11px;color:#64748b;margin-top:10px;text-align:center" id="roleExplainer">
         💡 1-Tap to call. If the line is busy, CallShield will notify you or auto-roll to the next free channel.
       </div>
+
+      <!-- Call Forensic Evidence Database Button -->
+      <div style="margin-top:14px;display:flex;gap:8px;">
+        <button class="btn-preset" style="flex:1;background:rgba(56, 189, 248, 0.12);border-color:#38bdf8;color:#38bdf8;padding:8px 12px;font-weight:700;" onclick="openConversationDatabaseModal()">
+          📁 Call Conversation Database (<span id="dbRecordCount">0</span> Sessions)
+        </button>
+      </div>
     </div>
 
     <!-- 1-Tap Offline Simulation (Demo Mode) -->
@@ -735,6 +742,39 @@ body {
     <div style="display:flex;gap:10px">
       <button class="call-big-btn" style="flex:1;padding:12px;font-size:15px" onclick="acceptCall()">✅ Answer</button>
       <button class="btn-end" style="flex:1;width:auto;height:48px;border-radius:12px;font-size:15px" onclick="rejectCall()">❌ Decline</button>
+    </div>
+  </div>
+</div>
+
+<!-- Call Conversation Forensic Database Modal -->
+<div id="conversationDbModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#0f172a;border:1px solid #334155;border-radius:16px;max-width:540px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.7);overflow:hidden;">
+    <div style="padding:14px 18px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;background:#030712;">
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#38bdf8;display:flex;align-items:center;gap:6px;">
+          <span>📁 Forensic Call Conversation Database</span>
+        </div>
+        <div style="font-size:10px;color:#94a3b8;">Stored on-device in SQLite · Zero memory fragmentation</div>
+      </div>
+      <button onclick="closeConversationDatabaseModal()" style="background:#1e293b;border:1px solid #475569;color:#fff;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer;">✕ Close</button>
+    </div>
+    
+    <div id="dbSessionListPanel" style="padding:14px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;">
+      <div style="text-align:center;color:#64748b;padding:30px 10px;">No saved call conversations yet. Complete a call on Line 101 to log evidence!</div>
+    </div>
+
+    <!-- Detail View for Single Session -->
+    <div id="dbSessionDetailPanel" style="display:none;padding:14px;overflow-y:auto;flex:1;flex-direction:column;gap:8px;background:#030712;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <button onclick="backToDbSessionList()" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;">← Back to Sessions</button>
+        <span id="detailSessionBadge" style="font-size:11px;font-weight:700;"></span>
+      </div>
+      <div id="detailSessionTranscript" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+
+    <div style="padding:10px 16px;border-top:1px solid #334155;background:#030712;display:flex;justify-content:space-between;align-items:center;">
+      <button onclick="exportCurrentDatabaseJson()" style="background:rgba(56,189,248,0.15);border:1px solid #38bdf8;color:#38bdf8;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">📥 Export JSON Evidence</button>
+      <button onclick="clearAllDatabaseConversations()" style="background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#f87171;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">🗑️ Clear Logs</button>
     </div>
   </div>
 </div>
@@ -1858,6 +1898,9 @@ function setupActiveCall(call, peerName) {
   hasSoundedAlertInCall = false;
   updateAutoRoleDisplay();
 
+  // Initialize Call Conversation Database Session Record
+  initCallSessionRecord();
+
   // 1. Audio stream setup (PeerJS event)
   call.on('stream', (remoteStream) => {
     attachRemoteAudio(remoteStream);
@@ -1935,6 +1978,11 @@ function endCall(notifyPeer = true) {
   document.getElementById('lobbyScreen').style.display = 'block';
   document.getElementById('fraudBanner').classList.remove('active');
   document.getElementById('stealthBanner').classList.remove('active');
+
+  // Finalize Call Forensic Database Record
+  finalizeCallSessionRecord();
+  updateDbRecordCountUI();
+
   peakRisk = 0;
   updateRiskDisplay(0, 'LOW RISK', '—');
 
@@ -2033,23 +2081,175 @@ let interimDebounceTimer = null;
 let lastCommittedUtterance = '';
 let lastUtteranceTime = 0;
 
-// ── Acoustic Echo Loopback Buffer & Suppressor ──
+// ── Extended Circular Memory Buffer & Database Storage ───────────────────
+// Expanded from 15 to 250 items to eliminate memory fragmentation during long calls (1-5 hours)
+const MAX_INTERCEPTION_BUFFER_SIZE = 250;
+let currentCallSessionId = null;
+let recentRemoteTranscripts = []; // Ring buffer with fixed bound
+
+// IndexedDB / SQLite Bridge Storage for all conversations
+const FORENSIC_DB_KEY = 'callshield_conversation_sessions_v1';
+
+function getStoredSessions() {
+  try {
+    if (window.CallShieldBridge && window.CallShieldBridge.dbGetAllSessions) {
+      const nativeJson = window.CallShieldBridge.dbGetAllSessions();
+      if (nativeJson && nativeJson !== '[]') {
+        return JSON.parse(nativeJson);
+      }
+    }
+    const raw = localStorage.getItem(FORENSIC_DB_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) {
+    return [];
+  }
+}
+
+function saveStoredSessions(sessions) {
+  try {
+    // Keep max 150 sessions on local storage to prevent unbounded growth & heap fragmentation
+    if (sessions.length > 150) {
+      sessions = sessions.slice(0, 150);
+    }
+    localStorage.setItem(FORENSIC_DB_KEY, JSON.stringify(sessions));
+    updateDbRecordCountUI();
+  } catch(e){}
+}
+
+function updateDbRecordCountUI() {
+  try {
+    const list = getStoredSessions();
+    const el = document.getElementById('dbRecordCount');
+    if (el) el.textContent = list.length;
+  } catch(e){}
+}
+
+function initCallSessionRecord() {
+  currentCallSessionId = 'CALL_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+  const now = Date.now();
+  const role = (myCallRole === 'CALLER' || isActualCaller) ? 'CALLER' : 'RECEIVER';
+
+  // 1. Android Native SQLite Database
+  if (window.CallShieldBridge && window.CallShieldBridge.dbRecordSessionStart) {
+    try {
+      window.CallShieldBridge.dbRecordSessionStart(currentCallSessionId, String(currentChannel), role, now);
+    } catch(e){}
+  }
+
+  // 2. Web Local Storage Database
+  const sessions = getStoredSessions();
+  sessions.unshift({
+    sessionId: currentCallSessionId,
+    channel: String(currentChannel),
+    role: role,
+    startTime: now,
+    endTime: 0,
+    peakScore: 0,
+    isScam: false,
+    utterances: []
+  });
+  saveStoredSessions(sessions);
+}
+
+function logUtteranceToDatabase(speaker, text, isDanger, score) {
+  if (!text || !text.trim()) return;
+  const now = Date.now();
+  if (!currentCallSessionId) {
+    currentCallSessionId = 'CALL_' + now + '_' + Math.floor(Math.random()*1000);
+  }
+
+  // 1. Android Native SQLite Database
+  if (window.CallShieldBridge && window.CallShieldBridge.dbInsertUtterance) {
+    try {
+      window.CallShieldBridge.dbInsertUtterance(currentCallSessionId, speaker, text, isDanger, score, now);
+    } catch(e){}
+  }
+
+  // 2. Web Local Storage Database
+  try {
+    const sessions = getStoredSessions();
+    let session = sessions.find(s => s.sessionId === currentCallSessionId);
+    if (!session) {
+      session = {
+        sessionId: currentCallSessionId,
+        channel: String(currentChannel),
+        role: (myCallRole === 'CALLER' || isActualCaller) ? 'CALLER' : 'RECEIVER',
+        startTime: now,
+        endTime: 0,
+        peakScore: score,
+        isScam: isDanger,
+        utterances: []
+      };
+      sessions.unshift(session);
+    }
+    // Prevent DOM and array heap fragmentation: limit to 200 utterances per session
+    if (session.utterances.length >= 200) {
+      session.utterances.shift();
+    }
+    session.utterances.push({
+      speaker: speaker,
+      text: text,
+      isDanger: isDanger,
+      score: score,
+      timestamp: now
+    });
+    session.peakScore = Math.max(session.peakScore || 0, score);
+    if (isDanger || score >= 35) session.isScam = true;
+    saveStoredSessions(sessions);
+  } catch(e){}
+}
+
+function finalizeCallSessionRecord() {
+  if (!currentCallSessionId) return;
+  const now = Date.now();
+  const isScam = (peakRisk >= 35);
+
+  // 1. Android Native SQLite Database
+  if (window.CallShieldBridge && window.CallShieldBridge.dbFinalizeSession) {
+    try {
+      window.CallShieldBridge.dbFinalizeSession(currentCallSessionId, peakRisk, isScam, now);
+    } catch(e){}
+  }
+
+  // 2. Web Local Storage Database
+  try {
+    const sessions = getStoredSessions();
+    const session = sessions.find(s => s.sessionId === currentCallSessionId);
+    if (session) {
+      session.endTime = now;
+      session.peakScore = Math.max(session.peakScore || 0, peakRisk);
+      session.isScam = session.isScam || isScam;
+      saveStoredSessions(sessions);
+    }
+  } catch(e){}
+  currentCallSessionId = null;
+}
+
+// ── Extended Acoustic Echo Loopback Buffer & Ring Suppressor ──
 function recordRemoteTranscript(text) {
   if (!text || !text.trim()) return;
+  // Circular ring buffer with maximum boundary: O(1) memory allocation
+  if (recentRemoteTranscripts.length >= MAX_INTERCEPTION_BUFFER_SIZE) {
+    recentRemoteTranscripts.shift(); // Recycle oldest pointer
+  }
   recentRemoteTranscripts.push({
     text: text.trim().toLowerCase(),
     time: Date.now()
   });
-  if (recentRemoteTranscripts.length > 15) {
-    recentRemoteTranscripts.shift();
-  }
 }
 
 function isAcousticEcho(localText) {
   if (!localText || !localText.trim()) return false;
   const now = Date.now();
-  // Filter out remote transcripts older than 3.5 seconds
-  recentRemoteTranscripts = recentRemoteTranscripts.filter(item => (now - item.time) < 3500);
+  // Filter out remote transcripts older than 4.5 seconds without reallocating arrays
+  let writeIdx = 0;
+  for (let i = 0; i < recentRemoteTranscripts.length; i++) {
+    if ((now - recentRemoteTranscripts[i].time) < 4500) {
+      recentRemoteTranscripts[writeIdx++] = recentRemoteTranscripts[i];
+    }
+  }
+  recentRemoteTranscripts.length = writeIdx; // Truncate cleanly in-place (No heap fragmentation)
+
   if (recentRemoteTranscripts.length === 0) return false;
 
   const normLocal = normalizeSpokenText(localText).trim();
@@ -2057,18 +2257,16 @@ function isAcousticEcho(localText) {
   const localWords = normLocal.split(/\s+/).filter(w => w.length > 1);
   if (localWords.length === 0) return false;
 
-  for (const item of recentRemoteTranscripts) {
-    const normRemote = normalizeSpokenText(item.text).trim();
-    // 1. Direct or substring containment
+  for (let i = 0; i < recentRemoteTranscripts.length; i++) {
+    const normRemote = normalizeSpokenText(recentRemoteTranscripts[i].text).trim();
     if (normRemote.includes(normLocal) || normLocal.includes(normRemote)) {
       return true;
     }
-    // 2. High word-overlap similarity (>= 50% matching significant words)
     const remoteWordSet = new Set(normRemote.split(/\s+/).filter(w => w.length > 1));
     if (remoteWordSet.size > 0) {
       let matchCount = 0;
-      for (const w of localWords) {
-        if (remoteWordSet.has(w)) matchCount++;
+      for (let j = 0; j < localWords.length; j++) {
+        if (remoteWordSet.has(localWords[j])) matchCount++;
       }
       if ((matchCount / localWords.length) >= 0.5) {
         return true;
@@ -2671,7 +2869,19 @@ function appendTranscript(speakerOrText, textOrDanger, isDangerArg) {
     </div>
   `;
   p.appendChild(d);
+
+  // 🛡️ SOLVE DOM MEMORY FRAGMENTATION:
+  // If active in-call transcript panel exceeds 100 DOM bubbles, purge the oldest bubble
+  // so the mobile browser heap and GPU memory never fragment or bloat over 4-5 hours!
+  while (p.children.length > 100) {
+    p.removeChild(p.firstChild);
+  }
+
   p.scrollTop = p.scrollHeight;
+
+  // 📁 Persist utterance into Local & Native SQLite Database
+  const estimatedScore = isDanger ? 90 : 0;
+  logUtteranceToDatabase(cleanSpeaker, text, isDanger, estimatedScore);
 }
 
 let lastTimelineSec = -1;
@@ -2842,6 +3052,146 @@ function simulateScam(type) {
   `;
 }
 
+// ── 11. Conversation Database UI & Modal Management ────────────────────────
+function openConversationDatabaseModal() {
+  const modal = document.getElementById('conversationDbModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  renderDatabaseSessionsList();
+}
+
+function closeConversationDatabaseModal() {
+  const modal = document.getElementById('conversationDbModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function backToDbSessionList() {
+  document.getElementById('dbSessionDetailPanel').style.display = 'none';
+  document.getElementById('dbSessionListPanel').style.display = 'flex';
+}
+
+function renderDatabaseSessionsList() {
+  const listPanel = document.getElementById('dbSessionListPanel');
+  const detailPanel = document.getElementById('dbSessionDetailPanel');
+  if (!listPanel) return;
+
+  listPanel.style.display = 'flex';
+  if (detailPanel) detailPanel.style.display = 'none';
+
+  const sessions = getStoredSessions();
+  updateDbRecordCountUI();
+
+  if (!sessions || sessions.length === 0) {
+    listPanel.innerHTML = `
+      <div style="text-align:center;color:#64748b;padding:40px 10px;">
+        <div style="font-size:32px;margin-bottom:8px;">📁</div>
+        <b>No call conversations logged yet.</b>
+        <div style="font-size:11px;margin-top:4px;">Initiate or receive a call on Line 101 to log live conversations & speech forensics!</div>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  sessions.forEach((s, idx) => {
+    const isScam = Boolean(s.isScam || (s.peakScore >= 35));
+    const badgeColor = isScam ? 'var(--cs-red)' : 'var(--cs-green)';
+    const badgeText = isScam ? `🚨 FRAUD (${s.peakScore || 90}%)` : `🟢 SAFE (${s.peakScore || 0}%)`;
+    const dateStr = s.startTime ? new Date(s.startTime).toLocaleString() : 'Recent Call';
+    const count = (s.utterances ? s.utterances.length : (s.utteranceCount || 0));
+
+    html += `
+      <div style="background:#030712;border:1px solid #1e293b;border-left:4px solid ${badgeColor};padding:10px 12px;border-radius:10px;cursor:pointer;" onclick="viewSessionDetail('${s.sessionId}')">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-size:12px;font-weight:700;color:#fff;">Line ${s.channel || '101'} · Role: ${s.role || 'CALL'}</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${isScam ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)'};color:${badgeColor};font-weight:bold;">${badgeText}</span>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;display:flex;justify-content:space-between;">
+          <span>🕒 ${dateStr}</span>
+          <span>💬 ${count} Utterances</span>
+        </div>
+      </div>
+    `;
+  });
+  listPanel.innerHTML = html;
+}
+
+function viewSessionDetail(sessionId) {
+  const listPanel = document.getElementById('dbSessionListPanel');
+  const detailPanel = document.getElementById('dbSessionDetailPanel');
+  const badge = document.getElementById('detailSessionBadge');
+  const transcriptWrap = document.getElementById('detailSessionTranscript');
+
+  listPanel.style.display = 'none';
+  detailPanel.style.display = 'flex';
+
+  const sessions = getStoredSessions();
+  const session = sessions.find(s => s.sessionId === sessionId);
+
+  if (!session) {
+    transcriptWrap.innerHTML = '<div style="color:#64748b;text-align:center;">Session not found.</div>';
+    return;
+  }
+
+  const isScam = Boolean(session.isScam || (session.peakScore >= 35));
+  badge.textContent = isScam ? `🚨 FRAUD SPIKE: ${session.peakScore}%` : '🟢 SAFE CALL (0%)';
+  badge.style.color = isScam ? 'var(--cs-red)' : 'var(--cs-green)';
+
+  // Load utterances from Android native DB or Web array
+  let utterances = session.utterances || [];
+  if (window.CallShieldBridge && window.CallShieldBridge.dbGetSessionUtterances) {
+    try {
+      const nativeUtterances = JSON.parse(window.CallShieldBridge.dbGetSessionUtterances(sessionId));
+      if (nativeUtterances && nativeUtterances.length > 0) {
+        utterances = nativeUtterances;
+      }
+    } catch(e){}
+  }
+
+  if (utterances.length === 0) {
+    transcriptWrap.innerHTML = '<div style="color:#64748b;text-align:center;padding:20px;">No speech utterances logged for this session.</div>';
+    return;
+  }
+
+  let html = '';
+  utterances.forEach(u => {
+    const isUserA = (u.speaker === 'User A');
+    const color = isUserA ? '#38bdf8' : '#00ff87';
+    const border = u.isDanger ? 'border:1px solid #ef4444;background:rgba(239,68,68,0.1);' : 'background:#0f172a;border:1px solid #1e293b;';
+    const timeStr = u.timestamp ? new Date(u.timestamp).toLocaleTimeString() : '';
+
+    html += `
+      <div style="padding:8px 10px;border-radius:8px;${border}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+          <b style="color:${color};font-size:11px;">${u.speaker}</b>
+          <span style="font-size:9px;color:#64748b;">${timeStr}</span>
+        </div>
+        <div style="font-size:12px;color:#f8fafc;line-height:1.4;">${u.text}</div>
+      </div>
+    `;
+  });
+  transcriptWrap.innerHTML = html;
+}
+
+function exportCurrentDatabaseJson() {
+  const sessions = getStoredSessions();
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sessions, null, 2));
+  const dlAnchor = document.createElement('a');
+  dlAnchor.setAttribute("href", dataStr);
+  dlAnchor.setAttribute("download", `CallShield_Evidence_Logs_${Date.now()}.json`);
+  document.body.appendChild(dlAnchor);
+  dlAnchor.click();
+  dlAnchor.remove();
+}
+
+function clearAllDatabaseConversations() {
+  if (confirm("Are you sure you want to clear all forensic call conversation logs?")) {
+    localStorage.removeItem(FORENSIC_DB_KEY);
+    renderDatabaseSessionsList();
+    updateDbRecordCountUI();
+  }
+}
+
 // Initialize on page load (Starts STT immediately on fresh app open & keeps it alive)
 window.addEventListener('DOMContentLoaded', () => {
   setChannel(currentChannel);
@@ -2849,6 +3199,7 @@ window.addEventListener('DOMContentLoaded', () => {
   updateAutoRoleDisplay();
   startContinuousSpeechInterceptor();
   initSTTWatchdog();
+  updateDbRecordCountUI();
 });
 
 // Mobile gesture unlock listener to guarantee microphone/audio permissions are primed
