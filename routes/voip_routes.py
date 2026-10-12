@@ -72,6 +72,72 @@ def peerjs_library():
     return send_from_directory(tpl_mod, 'peerjs.min.js', mimetype='application/javascript')
 
 
+# ─── High-Speed Local PeerJS Signaling Server (Zero Rate Limit & Zero Lag) ───────
+_peer_clients = {} # peer_id -> WebSocket connection
+
+@voip_bp.route('/peerjs/id')
+@voip_bp.route('/peerjs/peerjs/id')
+@voip_bp.route('/peerjs/<path:subpath>/id')
+def peerjs_get_id(subpath=None):
+    from flask import Response
+    import uuid
+    return Response(str(uuid.uuid4()), mimetype='text/plain')
+
+@voip_bp.route('/peerjs', websocket=True)
+@voip_bp.route('/peerjs/peerjs', websocket=True)
+def peerjs_websocket():
+    try:
+        from simple_websocket import Server, ConnectionClosed
+    except ImportError:
+        return '', 501
+
+    ws = Server(request.environ)
+    peer_id = request.args.get('id', '').strip()
+    if not peer_id:
+        try: ws.close()
+        except: pass
+        return ''
+
+    _peer_clients[peer_id] = ws
+    print(f'[LocalPeerServer] Peer connected on local engine: {peer_id}')
+    try:
+        ws.send(json.dumps({'type': 'OPEN'}))
+        while True:
+            data = ws.receive()
+            if data is None:
+                break
+            try:
+                msg = json.loads(data)
+                mtype = msg.get('type')
+                if mtype == 'HEARTBEAT':
+                    ws.send(json.dumps({'type': 'HEARTBEAT'}))
+                elif mtype in ('OFFER', 'ANSWER', 'CANDIDATE', 'LEAVE'):
+                    dst = msg.get('dst')
+                    if dst and dst in _peer_clients:
+                        target_ws = _peer_clients[dst]
+                        fwd = dict(msg)
+                        fwd['src'] = peer_id
+                        try:
+                            target_ws.send(json.dumps(fwd))
+                        except Exception as e:
+                            print(f'[LocalPeerServer] Forward to {dst} error: {e}')
+                    else:
+                        print(f'[LocalPeerServer] Destination {dst} not found for {mtype}')
+            except Exception as ex:
+                pass
+    except ConnectionClosed:
+        pass
+    except Exception as e:
+        print(f'[LocalPeerServer] Session note: {e}')
+    finally:
+        if peer_id in _peer_clients and _peer_clients[peer_id] == ws:
+            del _peer_clients[peer_id]
+            print(f'[LocalPeerServer] Peer disconnected: {peer_id}')
+        try: ws.close()
+        except: pass
+    return ''
+
+
 @voip_bp.route('/modules/voip/history')
 def voip_history_page():
     """Renders the VoIP call history page."""

@@ -1109,7 +1109,9 @@ function initPeerWithId(peerId) {
   }
 
   myAssignedPeerId = peerId;
-  myPeer = new Peer(peerId, {
+
+  const isHttp = (window.location.protocol === 'http:' || window.location.protocol === 'https:');
+  const peerOpts = {
     debug: 1,
     config: {
       iceServers: [
@@ -1119,7 +1121,17 @@ function initPeerWithId(peerId) {
         { urls: 'stun:stun.cloudflare.com:3478' }
       ]
     }
-  });
+  };
+
+  // If accessed via web (http://localhost:5000), connect to local engine with 0ms latency and 0 rate limits!
+  if (isHttp && window.location.hostname) {
+    peerOpts.host = window.location.hostname;
+    peerOpts.port = window.location.port ? parseInt(window.location.port, 10) : (window.location.protocol === 'https:' ? 443 : 80);
+    peerOpts.path = '/peerjs';
+    peerOpts.secure = (window.location.protocol === 'https:');
+  }
+
+  myPeer = new Peer(peerId, peerOpts);
 
   myPeer.on('open', (assignedId) => {
     myAssignedPeerId = assignedId;
@@ -1139,7 +1151,7 @@ function initPeerWithId(peerId) {
     console.warn('myPeer disconnected from signaling server. Attempting reconnect...');
     const badge = document.getElementById('statusBadge');
     if (badge) {
-      badge.textContent = '● Reconnecting...';
+      badge.textContent = '● Connecting...';
       badge.style.color = 'var(--cs-yellow)';
     }
     try {
